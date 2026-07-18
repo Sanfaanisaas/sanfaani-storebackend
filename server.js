@@ -9,6 +9,7 @@ import { connectDB } from "./src/config/db.js";
 import { errorHandler } from "./src/middleware/errorHandler.js";
 import healthRoutes from "./src/routes/healthRoutes.js";
 import authRoutes from "./src/routes/authRoutes.js";
+import testRoutes from "./src/routes/testRoutes.js";
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use(morgan("dev"));
 // Routes
 app.use("/api", healthRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/test", testRoutes);
 
 // 404 handler — catches any route that didn't match above
 app.use((req, res) => {
