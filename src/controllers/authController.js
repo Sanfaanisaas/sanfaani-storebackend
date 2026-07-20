@@ -36,7 +36,6 @@ export const register = catchAsync(async (req, res) => {
   });
 });
 
-
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -82,7 +81,6 @@ export const login = catchAsync(async (req, res) => {
   });
 });
 
-
 import { verifyRefreshToken } from "../services/tokenService.js";
 
 export const refresh = catchAsync(async (req, res) => {
@@ -120,10 +118,9 @@ export const refresh = catchAsync(async (req, res) => {
 
   res.status(200).json({
     success: true,
-    data: { accessToken },
+    data: { accessToken, user: user.toSafeObject() },
   });
 });
-
 
 export const logout = catchAsync(async (req, res) => {
   res.clearCookie("refreshToken", {

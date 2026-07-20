@@ -10,12 +10,19 @@ import { errorHandler } from "./src/middleware/errorHandler.js";
 import healthRoutes from "./src/routes/healthRoutes.js";
 import authRoutes from "./src/routes/authRoutes.js";
 import testRoutes from "./src/routes/testRoutes.js";
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "./src/config/swagger.js";
 
 const app = express();
 
 // Core middleware
 app.use(helmet());
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(cookieParser());
 app.use(morgan("dev"));
@@ -24,6 +31,7 @@ app.use(morgan("dev"));
 app.use("/api", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/test", testRoutes);
+app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // 404 handler — catches any route that didn't match above
 app.use((req, res) => {
