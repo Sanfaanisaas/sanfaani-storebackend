@@ -63,26 +63,22 @@ const variantSchema = new mongoose.Schema(
 // enforced no matter what creates or updates a Variant — controller,
 // seed script, admin import, migration, whatever calls .save() or
 // runs validators.
-variantSchema.pre("validate", function (next) {
+variantSchema.pre("validate", function () {
     if (this.in_stock === this.sourcing) {
         // catches both-true AND both-false — a variant must resolve to
         // exactly one fulfilment mode
-        return next(
-            new Error(
-                "Variant must be exactly one of in_stock or sourcing, never both or neither."
-            )
+        throw new Error(
+            "Variant must be exactly one of in_stock or sourcing, never both or neither."
         );
     }
 
     if (this.in_stock && (this.stockQuantity === undefined || this.stockQuantity === null)) {
-        return next(new Error("in_stock variants require a stockQuantity."));
+        throw new Error("in_stock variants require a stockQuantity.");
     }
 
     if (this.sourcing && (this.sourcingLeadTimeDays === undefined || this.sourcingLeadTimeDays === null)) {
-        return next(new Error("sourcing variants require a sourcingLeadTimeDays."));
+        throw new Error("sourcing variants require a sourcingLeadTimeDays.");
     }
-
-    next();
 });
 
 variantSchema.methods.toPublicObject = function () {
