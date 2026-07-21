@@ -1,0 +1,55 @@
+### Cart Endpoints Verification
+
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTVmODljNzkzYTRkZjYyMWE0MTM1NmIiLCJyb2xlIjoiY3VzdG9tZXIiLCJpYXQiOjE3ODQ2NDYwODcsImV4cCI6MTc4NDY0OTY4N30.o9k5mt5mZwjchxGXoZTA2HK-faKwj7RNfNXNV2VFRcw
+@variantA = 6a5f89c793a4df621a413569
+@variantB = 6a5f89c793a4df621a41356a
+
+### 1. GET Cart (Expected: Empty)
+GET http://localhost:5000/api/cart
+Authorization: Bearer {{token}}
+
+### 2. POST Add Item (Valid)
+POST http://localhost:5000/api/cart/items
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "variantId": "{{variantA}}",
+  "quantity": 2
+}
+
+### 3. GET Cart (Verify Populated & no cost/supplier)
+GET http://localhost:5000/api/cart
+Authorization: Bearer {{token}}
+
+### 4. POST Add Item (Quantity exceeding stock: stock is 2 for variantB)
+POST http://localhost:5000/api/cart/items
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "variantId": "{{variantB}}",
+  "quantity": 5
+}
+
+### 5. POST Merge (Overlapping guest items)
+# variantA is already in cart (qty 2). variantB is new (qty 1).
+# variantA should remain qty 2. variantB should be added with qty 1.
+POST http://localhost:5000/api/cart/merge
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "guestItems": [
+    { "variantId": "{{variantA}}", "quantity": 5 },
+    { "variantId": "{{variantB}}", "quantity": 1 }
+  ]
+}
+
+### 6. DELETE Item
+DELETE http://localhost:5000/api/cart/items/{{variantA}}
+Authorization: Bearer {{token}}
+
+### 7. GET Cart (Verify it's gone)
+GET http://localhost:5000/api/cart
+Authorization: Bearer {{token}}
