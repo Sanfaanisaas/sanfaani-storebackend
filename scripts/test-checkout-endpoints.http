@@ -1,0 +1,126 @@
+### 1. Login
+POST {{base_url}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+> {% client.global.set("auth_token", response.body.data.accessToken); %}
+
+### 2. Add Item to Cart
+POST {{base_url}}/cart/items
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+  "variantId": "{{variant_id}}",
+  "quantity": 2
+}
+
+### 3. Successful Checkout
+POST {{base_url}}/checkout
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "variantId": "{{variant_id}}",
+      "price": {{variant_price}},
+      "quantity": 2
+    }
+  ],
+  "shippingAddress": {
+    "street": "123 Main St",
+    "city": "Lagos",
+    "state": "Lagos",
+    "postalCode": "100001",
+    "country": "Nigeria"
+  },
+  "paymentMethod": "pay_on_pickup"
+}
+
+### 4. Verify Cart is Empty
+GET {{base_url}}/cart
+Authorization: Bearer {{auth_token}}
+
+### 5. Price Mismatch (Should fail)
+# Add item back first
+POST {{base_url}}/cart/items
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+  "variantId": "{{variant_id}}",
+  "quantity": 1
+}
+
+### Checkout with wrong price
+POST {{base_url}}/checkout
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "variantId": "{{variant_id}}",
+      "price": 999999,
+      "quantity": 1
+    }
+  ],
+  "shippingAddress": {
+    "street": "123 Main St",
+    "city": "Lagos",
+    "state": "Lagos",
+    "country": "Nigeria"
+  },
+  "paymentMethod": "pay_on_pickup"
+}
+
+### 6. Insufficient Stock (Should fail)
+# Create a variant with stock: 1, add 2 to cart (if cart allows) or just try to checkout 2
+POST {{base_url}}/checkout
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "variantId": "{{low_stock_variant_id}}",
+      "price": 100,
+      "quantity": 5
+    }
+  ],
+  "shippingAddress": {
+    "street": "123 Main St",
+    "city": "Lagos",
+    "state": "Lagos",
+    "country": "Nigeria"
+  },
+  "paymentMethod": "pay_on_pickup"
+}
+
+### 7. Empty Cart (Should fail)
+# Ensure cart is empty first, then call checkout
+POST {{base_url}}/checkout
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "variantId": "{{variant_id}}",
+      "price": {{variant_price}},
+      "quantity": 1
+    }
+  ],
+  "shippingAddress": {
+    "street": "123 Main St",
+    "city": "Lagos",
+    "state": "Lagos",
+    "country": "Nigeria"
+  },
+  "paymentMethod": "pay_on_pickup"
+}
