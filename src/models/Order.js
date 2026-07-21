@@ -91,6 +91,24 @@ const orderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+orderSchema.methods.toPublicOrder = function () {
+  return {
+    id: this._id,
+    user: this.user,
+    items: this.items,
+    shippingAddress: this.shippingAddress,
+    subtotal: this.subtotal,
+    tax: this.tax,
+    shippingCost: this.shippingCost,
+    total: this.total,
+    paymentMethod: this.paymentMethod,
+    paymentStatus: this.paymentStatus,
+    orderStatus: this.orderStatus,
+    createdAt: this.createdAt,
+    updatedAt: this.updatedAt,
+  };
+};
+
 const Order = mongoose.model("Order", orderSchema);
 
 export default Order;
