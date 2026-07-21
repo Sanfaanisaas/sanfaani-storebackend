@@ -1,7 +1,13 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-const requiredEnvVars = ["MONGO_URI", "JWT_SECRET", "JWT_REFRESH_SECRET"];
+const requiredEnvVars = [
+  "MONGO_URI",
+  "JWT_SECRET",
+  "JWT_REFRESH_SECRET",
+  "PAYSTACK_SECRET_KEY",
+  "PAYSTACK_CALLBACK_URL",
+];
 
 for (const key of requiredEnvVars) {
   if (!process.env[key]) {
@@ -14,4 +20,6 @@ export const env = {
   mongoUri: process.env.MONGO_URI,
   jwtSecret: process.env.JWT_SECRET,
   jwtRefreshSecret: process.env.JWT_REFRESH_SECRET,
+  paystackSecretKey: process.env.PAYSTACK_SECRET_KEY,
+  paystackCallbackUrl: process.env.PAYSTACK_CALLBACK_URL,
 };

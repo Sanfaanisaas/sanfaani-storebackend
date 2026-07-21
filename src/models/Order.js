@@ -87,6 +87,9 @@ const orderSchema = new mongoose.Schema(
     paymentReference: {
       type: String,
     },
+    receiptUrl: {
+      type: String,
+    },
   },
   { timestamps: true }
 );

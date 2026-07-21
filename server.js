@@ -14,6 +14,7 @@ import productRoutes from "./src/routes/productRoutes.js";
 import cartRoutes from "./src/routes/cartRoutes.js";
 import checkoutRoutes from "./src/routes/checkoutRoutes.js";
 import orderRoutes from "./src/routes/orderRoutes.js";
+import paymentRoutes from "./src/routes/paymentRoutes.js";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./src/config/swagger.js";
 
@@ -27,6 +28,10 @@ app.use(
     credentials: true,
   })
 );
+
+// Specific route that needs raw body MUST come before express.json()
+app.use("/api/payments/webhook", express.raw({ type: "application/json" }));
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(morgan("dev"));
@@ -39,6 +44,7 @@ app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/checkout", checkoutRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/payments", paymentRoutes);
 app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // 404 handler — catches any route that didn't match above

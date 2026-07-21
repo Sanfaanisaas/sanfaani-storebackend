@@ -1,0 +1,3 @@
+◇ injected env (1) from .env // tip: ⌘ suppress logs { quiet: true }
+✅ MongoDB connected successfully
+🚀 Server running on http://localhost:5000
