@@ -52,7 +52,7 @@
             { id: 'products', name: 'Public Products Listing', method: 'GET', path: '/products' },
             { id: 'login', name: 'Auth Login', method: 'POST', path: '/auth/login', needsAuth: false, isLogin: true },
             { id: 'admin', name: 'Admin Route (Create Product)', method: 'POST', path: '/products', needsAuth: true },
-            { id: 'payment', name: 'Payment Initiation', method: 'POST', path: '/payments/initiate', needsAuth: true, body: { orderId: "" } }
+            { id: 'payment', name: 'Payment Initiation', method: 'POST', path: '/payments/initiate', needsAuth: true, body: { orderId: "6a611bb07c190d671fc023c6" } }
         ];
 
         function createDiagnosticUI() {
@@ -60,6 +60,16 @@
             fields.forEach(field => {
                 const card = document.createElement('div');
                 card.className = 'diagnostic-card';
+                let bodyHtml = '';
+                if (field.id === 'payment') {
+                    bodyHtml = `
+                        <div style="margin: 10px 0;">
+                            <label style="font-size: 0.8em; color: #666;">Order ID (24-char hex):</label>
+                            <input type="text" id="input-orderId" value="${field.body.orderId}" oninput="updateBody('payment', 'orderId', this.value)">
+                        </div>
+                    `;
+                }
+
                 card.innerHTML = `
                     <div class="endpoint-row">
                         <span class="method">${field.method}</span>
@@ -67,11 +77,19 @@
                         <span id="badge-${field.id}" class="status-badge status-pending">Pending</span>
                     </div>
                     <h4>${field.name}</h4>
+                    ${bodyHtml}
                     <button onclick="runCheck('${field.id}')">Test Endpoint</button>
                     <pre id="output-${field.id}">Click "Test Endpoint" to see results...</pre>
                 `;
                 container.appendChild(card);
             });
+        }
+
+        function updateBody(fieldId, key, value) {
+            const field = fields.find(f => f.id === fieldId);
+            if (field && field.body) {
+                field.body[key] = value;
+            }
         }
 
         async function runCheck(id) {

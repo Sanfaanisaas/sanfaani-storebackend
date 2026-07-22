@@ -8,7 +8,7 @@ export const initiatePayment = catchAsync(async (req, res) => {
   const { orderId, email: bodyEmail } = req.body;
   const user = req.user;
 
-  const order = await Order.findOne({ _id: orderId, user: user._id });
+  const order = await Order.findOne({ _id: orderId, user: user.id });
 
   if (!order) {
     return res.status(404).json({
