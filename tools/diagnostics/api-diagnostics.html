@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Diagnostics Interface</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background: #f4f7f6; }
+        h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        .diagnostic-card { background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; }
+        .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8em; font-weight: bold; text-transform: uppercase; }
+        .status-pending { background: #ffeaa7; color: #d6a317; }
+        .status-pass { background: #55efc4; color: #00b894; }
+        .status-fail { background: #ff7675; color: #d63031; }
+        .endpoint-row { display: flex; align-items: center; margin-bottom: 10px; }
+        .method { font-weight: bold; min-width: 60px; color: #3498db; }
+        .path { font-family: monospace; background: #eee; padding: 2px 6px; border-radius: 4px; flex-grow: 1; margin: 0 10px; }
+        pre { background: #2d3436; color: #dfe6e9; padding: 15px; border-radius: 5px; overflow-x: auto; font-size: 0.85em; }
+        button { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; transition: background 0.3s; }
+        button:hover { background: #2980b9; }
+        .auth-box { border: 1px dashed #3498db; padding: 15px; margin-bottom: 20px; border-radius: 5px; background: #ebf5fb; }
+        input { padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+    <h1>API Diagnostics</h1>
+
+    <div class="diagnostic-card">
+        <h3>Credentials & Config</h3>
+        <div class="auth-box">
+            <label>API Base URL</label>
+            <input type="text" id="baseUrl" value="http://localhost:5000/api">
+            <label>Test Email</label>
+            <input type="text" id="testEmail" placeholder="test@example.com">
+            <label>Test Password</label>
+            <input type="password" id="testPassword" placeholder="password">
+            <label>Auth Token</label>
+            <input type="text" id="authToken" placeholder="Bearer token will appear here after login">
+        </div>
+    </div>
+
+    <div id="diagnostics-container"></div>
+
+    <script>
+        const baseUrlInput = document.getElementById('baseUrl');
+        const authTokenInput = document.getElementById('authToken');
+        const emailInput = document.getElementById('testEmail');
+        const passwordInput = document.getElementById('testPassword');
+
+        const fields = [
+            { id: 'health', name: 'Health Check', method: 'GET', path: '/health' },
+            { id: 'products', name: 'Public Products Listing', method: 'GET', path: '/products' },
+            { id: 'login', name: 'Auth Login', method: 'POST', path: '/auth/login', needsAuth: false, isLogin: true },
+            { id: 'admin', name: 'Admin Route (Create Product)', method: 'POST', path: '/products', needsAuth: true },
+            { id: 'payment', name: 'Payment Initiation', method: 'POST', path: '/payments/initiate', needsAuth: true, body: { orderId: "" } }
+        ];
+
+        function createDiagnosticUI() {
+            const container = document.getElementById('diagnostics-container');
+            fields.forEach(field => {
+                const card = document.createElement('div');
+                card.className = 'diagnostic-card';
+                card.innerHTML = `
+                    <div class="endpoint-row">
+                        <span class="method">${field.method}</span>
+                        <span class="path">${field.path}</span>
+                        <span id="badge-${field.id}" class="status-badge status-pending">Pending</span>
+                    </div>
+                    <h4>${field.name}</h4>
+                    <button onclick="runCheck('${field.id}')">Test Endpoint</button>
+                    <pre id="output-${field.id}">Click "Test Endpoint" to see results...</pre>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        async function runCheck(id) {
+            const field = fields.find(f => f.id === id);
+            const badge = document.getElementById(`badge-${id}`);
+            const output = document.getElementById(`output-${id}`);
+            const baseUrl = baseUrlInput.value.replace(/\/$/, '');
+            
+            badge.className = 'status-badge status-pending';
+            badge.innerText = 'Testing...';
+            output.innerText = 'Sending request...';
+
+            const headers = { 'Content-Type': 'application/json' };
+            if (field.needsAuth && authTokenInput.value) {
+                headers['Authorization'] = authTokenInput.value.startsWith('Bearer ') 
+                    ? authTokenInput.value 
+                    : `Bearer ${authTokenInput.value}`;
+            }
+
+            let body = null;
+            if (field.isLogin) {
+                body = JSON.stringify({ email: emailInput.value, password: passwordInput.value });
+            } else if (field.body) {
+                body = JSON.stringify(field.body);
+            } else if (field.method === 'POST') {
+                body = JSON.stringify({});
+            }
+
+            try {
+                const startTime = performance.now();
+                const response = await fetch(`${baseUrl}${field.path}`, {
+                    method: field.method,
+                    headers: headers,
+                    body: body
+                });
+                const duration = (performance.now() - startTime).toFixed(0);
+                const data = await response.json();
+
+                if (response.ok) {
+                    badge.className = 'status-badge status-pass';
+                    badge.innerText = `Pass (${duration}ms)`;
+                    // Adjusted for actual response structure { success: true, data: { accessToken: "..." } }
+                    if (field.isLogin && data.data && data.data.accessToken) {
+                        authTokenInput.value = data.data.accessToken;
+                    }
+                } else {
+                    badge.className = 'status-badge status-fail';
+                    badge.innerText = `Fail (${response.status})`;
+                }
+
+                output.innerText = JSON.stringify({
+                    status: response.status,
+                    statusText: response.statusText,
+                    payload: data
+                }, null, 2);
+
+            } catch (err) {
+                badge.className = 'status-badge status-fail';
+                badge.innerText = 'Error';
+                output.innerText = `Fetch Error: ${err.message}`;
+            }
+        }
+
+        createDiagnosticUI();
+    </script>
+</body>
+</html>
