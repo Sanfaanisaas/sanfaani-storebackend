@@ -2,7 +2,15 @@ import { Router } from "express";
 import { authenticate, authorize } from "../middleware/authenticate.js";
 import { validate } from "../middleware/validate.js";
 import { createRepairSchema } from "../utils/validators/repairValidators.js";
-import { createRepair, intakeRepair, assignTechnician, recordDiagnosis } from "../controllers/repairController.js";
+import { 
+  createRepair, 
+  intakeRepair, 
+  assignTechnician, 
+  recordDiagnosis,
+  createQuote,
+  approveQuote,
+  startRepair
+} from "../controllers/repairController.js";
 import { USER_ROLES } from "../utils/constants.js";
 
 const router = Router();
@@ -28,6 +36,26 @@ router.patch(
   authenticate,
   authorize(USER_ROLES.TECHNICIAN),
   recordDiagnosis
+);
+
+router.post(
+  "/:id/quote",
+  authenticate,
+  authorize(USER_ROLES.TECHNICIAN, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN),
+  createQuote
+);
+
+router.patch(
+  "/:id/quote/:quoteId/approve",
+  authenticate,
+  approveQuote
+);
+
+router.patch(
+  "/:id/start",
+  authenticate,
+  authorize(USER_ROLES.TECHNICIAN, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN),
+  startRepair
 );
 
 export default router;
