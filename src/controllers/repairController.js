@@ -1,5 +1,6 @@
 import Repair from "../models/Repair.js";
 import { catchAsync } from "../utils/catchAsync.js";
+import * as repairService from "../services/repairService.js";
 
 export const createRepair = catchAsync(async (req, res) => {
   const { device, issueDescription, privacyAcknowledged } = req.body;
@@ -12,6 +13,15 @@ export const createRepair = catchAsync(async (req, res) => {
   });
 
   res.status(201).json({
+    success: true,
+    data: repair
+  });
+});
+
+export const intakeRepair = catchAsync(async (req, res) => {
+  const repair = await repairService.intakeRepair(req.params.id, req.body);
+  
+  res.status(200).json({
     success: true,
     data: repair
   });

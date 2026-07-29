@@ -32,6 +32,8 @@ const RepairSchema = new Schema({
     ref: "User",
     default: null,
   },
+  intakePhotos: [String],
+  intakeCondition: String,
 }, { timestamps: true });
 
 RepairSchema.pre("validate", function () {
