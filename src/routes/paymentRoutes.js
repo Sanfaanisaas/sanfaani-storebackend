@@ -2,6 +2,7 @@ import express from "express";
 import { initiatePayment, handleWebhook } from "../controllers/paymentController.js";
 import { authenticate } from "../middleware/authenticate.js";
 import { validate } from "../middleware/validate.js";
+import { paymentLimiter } from "../middleware/rateLimiter.js";
 import { initiatePaymentSchema } from "../utils/validators/paymentValidators.js";
 
 const router = express.Router();
@@ -10,6 +11,6 @@ const router = express.Router();
 // but we still need the controller to be mounted at the right path.
 router.post("/webhook", handleWebhook);
 
-router.post("/initiate", authenticate, validate(initiatePaymentSchema), initiatePayment);
+router.post("/initiate", authenticate, paymentLimiter, validate(initiatePaymentSchema), initiatePayment);
 
 export default router;

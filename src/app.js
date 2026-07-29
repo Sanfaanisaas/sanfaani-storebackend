@@ -22,12 +22,13 @@ import claimRoutes from "./routes/claimRoutes.js";
 import supportTicketRoutes from "./routes/supportTicketRoutes.js";
 
 const app = express();
+app.set("trust proxy", 1);
 
 // Global Middlewares
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.FRONTEND_ORIGIN || "http://localhost:3000",
+    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",") : "http://localhost:3000",
     credentials: true,
   })
 );

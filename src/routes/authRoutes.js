@@ -5,7 +5,9 @@ import {
   refresh,
   logout,
 } from "../controllers/authController.js";
+import { authenticate } from "../middleware/authenticate.js";
 import { validate } from "../middleware/validate.js";
+import { authLimiter } from "../middleware/rateLimiter.js";
 import {
   registerSchema,
   loginSchema,
@@ -45,7 +47,7 @@ const router = Router();
  *       409:
  *         description: Email already exists
  */
-router.post("/register", validate(registerSchema), register);
+router.post("/register", authLimiter, validate(registerSchema), register);
 
 /**
  * @swagger
@@ -73,7 +75,7 @@ router.post("/register", validate(registerSchema), register);
  *       401:
  *         description: Invalid credentials
  */
-router.post("/login", validate(loginSchema), login);
+router.post("/login", authLimiter, validate(loginSchema), login);
 
 /**
  * @swagger
@@ -87,7 +89,7 @@ router.post("/login", validate(loginSchema), login);
  *       401:
  *         description: Missing, invalid, or expired refresh token
  */
-router.post("/refresh", refresh);
+router.post("/refresh", authenticate, refresh);
 
 /**
  * @swagger
@@ -99,6 +101,6 @@ router.post("/refresh", refresh);
  *       200:
  *         description: Logged out successfully
  */
-router.post("/logout", logout);
+router.post("/logout", authenticate, logout);
 
 export default router;
