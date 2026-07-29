@@ -26,4 +26,4 @@ VariantSchema.pre('validate', function (next) {
   next();
 });
 
-export default VariantSchema;
+export default mongoose.model("Variant", VariantSchema);

@@ -62,7 +62,7 @@ router.post("/items", validate(addItemSchema), addItem);
 
 /**
  * @swagger
- * /cart/items/{variantId}:
+ * /cart/items/{variantSku}:
  *   delete:
  *     summary: Remove item from cart
  *     tags: [Cart]
@@ -70,7 +70,7 @@ router.post("/items", validate(addItemSchema), addItem);
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: variantId
+ *         name: variantSku
  *         required: true
  *         schema:
  *           type: string
@@ -78,7 +78,7 @@ router.post("/items", validate(addItemSchema), addItem);
  *       200:
  *         description: Item removed successfully
  */
-router.delete("/items/:variantId", removeItem);
+router.delete("/items/:variantSku", removeItem);
 
 /**
  * @swagger

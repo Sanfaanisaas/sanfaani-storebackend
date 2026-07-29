@@ -40,9 +40,10 @@ import {
   generateAccessToken,
   generateRefreshToken,
 } from "../services/tokenService.js";
+import Cart from "../models/Cart.js";
 
 export const login = catchAsync(async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, guestId } = req.body;
 
   const user = await User.findOne({ email });
   if (!user) {
@@ -64,6 +65,11 @@ export const login = catchAsync(async (req, res) => {
 
   const accessToken = generateAccessToken(user);
   const refreshToken = generateRefreshToken(user);
+
+  // Merge guest cart if guestId is provided
+  if (guestId) {
+    await Cart.mergeGuestCartIntoUser(guestId, user._id);
+  }
 
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,

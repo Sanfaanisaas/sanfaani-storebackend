@@ -2,23 +2,14 @@ import mongoose from "mongoose";
 
 const orderItemSchema = new mongoose.Schema(
   {
-    variant: {
+    productId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Variant",
+      ref: "Product",
       required: true,
     },
-    sku: {
+    variantSku: {
       type: String,
       required: true,
-    },
-    name: {
-      type: String,
-      required: true,
-    },
-    attributes: {
-      type: Map,
-      of: String,
-      default: {},
     },
     quantity: {
       type: Number,

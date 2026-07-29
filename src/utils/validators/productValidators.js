@@ -15,17 +15,15 @@ export const updateProductSchema = createProductSchema.partial();
 export const createVariantSchema = z.object({
   product: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid product ID"),
   sku: z.string().trim().min(1, "SKU is required"),
-  attributes: z.record(z.string()).optional(),
+  attributes: z.record(z.any()),
   price: z.number().min(0, "Price must be non-negative"),
-  costPrice: z.number().min(0, "Cost price must be non-negative").optional(),
-  supplier: z.object({
-    name: z.string().trim().optional(),
-    contact: z.string().trim().optional(),
+  condition: z.string().min(1, "Condition is required"),
+  inStock: z.number().min(0).optional(),
+  sourcing: z.object({
+    supplier: z.string().min(1),
+    leadTimeDays: z.number().min(0),
+    costPrice: z.number().min(0),
   }).optional(),
-  in_stock: z.boolean().optional(),
-  stockQuantity: z.number().min(0, "Stock quantity must be non-negative").optional(),
-  sourcing: z.boolean().optional(),
-  sourcingLeadTimeDays: z.number().min(0, "Sourcing lead time must be non-negative").optional(),
 });
 
 export const updateVariantSchema = createVariantSchema.omit({ product: true }).partial();
