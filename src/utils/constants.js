@@ -77,3 +77,5 @@ export const PRODUCT_CONDITION = Object.freeze({
 });
 
 export const LOW_STOCK_THRESHOLD = 5;
+
+export const WARRANTY_PERIOD_DAYS = 90;

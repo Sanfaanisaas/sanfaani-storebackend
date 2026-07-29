@@ -11,7 +11,9 @@ import {
   approveQuote,
   startRepair,
   addWorkLog,
-  performQC
+  performQC,
+  handoverRepair,
+  trackRepair
 } from "../controllers/repairController.js";
 import { USER_ROLES } from "../utils/constants.js";
 
@@ -73,5 +75,14 @@ router.patch(
   authorize(USER_ROLES.QC_OFFICER, USER_ROLES.SUPER_ADMIN),
   performQC
 );
+
+router.patch(
+  "/:id/handover",
+  authenticate,
+  authorize(USER_ROLES.STORE_OPERATOR, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN),
+  handoverRepair
+);
+
+router.get("/:id/track", trackRepair);
 
 export default router;

@@ -93,3 +93,21 @@ export const performQC = catchAsync(async (req, res) => {
     data: repair
   });
 });
+
+export const handoverRepair = catchAsync(async (req, res) => {
+  const { repair, warranty } = await repairService.handoverRepair(req.params.id);
+
+  res.status(200).json({
+    success: true,
+    data: { repair, warranty }
+  });
+});
+
+export const trackRepair = catchAsync(async (req, res) => {
+  const publicData = await repairService.getRepairStatus(req.params.id);
+
+  res.status(200).json({
+    success: true,
+    data: publicData
+  });
+});
