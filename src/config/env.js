@@ -1,25 +1,31 @@
 import dotenv from "dotenv";
+import { z } from "zod";
+
 dotenv.config();
 
-const requiredEnvVars = [
-  "MONGO_URI",
-  "JWT_SECRET",
-  "JWT_REFRESH_SECRET",
-  "PAYSTACK_SECRET_KEY",
-  "PAYSTACK_CALLBACK_URL",
-];
+const envSchema = z.object({
+  PORT: z.string().default("5000"),
+  MONGO_URI: z.string().url(),
+  JWT_SECRET: z.string().min(10),
+  JWT_REFRESH_SECRET: z.string().min(10),
+  PAYSTACK_SECRET_KEY: z.string().startsWith("sk_"),
+  PAYSTACK_CALLBACK_URL: z.string().url(),
+  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+});
 
-for (const key of requiredEnvVars) {
-  if (!process.env[key]) {
-    throw new Error(`Missing required environment variable: ${key}`);
-  }
+const parsed = envSchema.safeParse(process.env);
+
+if (!parsed.success) {
+  console.error("❌ Invalid environment variables:", parsed.error.format());
+  process.exit(1);
 }
 
 export const env = {
-  port: process.env.PORT || 5000,
-  mongoUri: process.env.MONGO_URI,
-  jwtSecret: process.env.JWT_SECRET,
-  jwtRefreshSecret: process.env.JWT_REFRESH_SECRET,
-  paystackSecretKey: process.env.PAYSTACK_SECRET_KEY,
-  paystackCallbackUrl: process.env.PAYSTACK_CALLBACK_URL,
+  port: parsed.data.PORT,
+  mongoUri: parsed.data.MONGO_URI,
+  jwtSecret: parsed.data.JWT_SECRET,
+  jwtRefreshSecret: parsed.data.JWT_REFRESH_SECRET,
+  paystackSecretKey: parsed.data.PAYSTACK_SECRET_KEY,
+  paystackCallbackUrl: parsed.data.PAYSTACK_CALLBACK_URL,
+  nodeEnv: parsed.data.NODE_ENV,
 };

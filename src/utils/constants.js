@@ -66,3 +66,13 @@ export const USER_ROLES = {
   TECH_ADMIN: "tech_admin",
   SUPER_ADMIN: "super_admin",
 };
+
+export const PRODUCT_CONDITION = Object.freeze({
+  NEW: 'new',
+  REFURBISHED_GRADE_A: 'refurbished_grade_a',
+  REFURBISHED_GRADE_B: 'refurbished_grade_b',
+  USED_GRADE_A: 'used_grade_a',
+  USED_GRADE_B: 'used_grade_b',
+});
+
+export const LOW_STOCK_THRESHOLD = 5;
