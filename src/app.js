@@ -14,6 +14,7 @@ import cartRoutes from "./routes/cartRoutes.js";
 import checkoutRoutes from "./routes/checkoutRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
+import repairRoutes from "./routes/repairRoutes.js";
 
 const app = express();
 
@@ -44,6 +45,7 @@ app.use("/api/cart", cartRoutes);
 app.use("/api/checkout", checkoutRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/repairs", repairRoutes);
 
 // Handle unhandled routes
 app.all("/*path", (req, res, next) => {
