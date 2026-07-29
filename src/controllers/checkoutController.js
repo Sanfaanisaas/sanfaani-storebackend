@@ -5,6 +5,9 @@ import Cart from "../models/Cart.js";
 import Variant from "../models/Variant.js";
 import Product from "../models/Product.js";
 import Order from "../models/Order.js";
+import { isPayOnPickupEligible } from "../services/orderService.js";
+
+import { ORDER_STATUS } from "../utils/constants.js";
 
 export const createCheckout = catchAsync(async (req, res) => {
   const userId = req.user.id;
@@ -45,13 +48,18 @@ export const createCheckout = catchAsync(async (req, res) => {
         }
 
         // Build order item snapshot
+        const product = await Product.findById(item.productId).session(session);
+        if (!product) {
+          throw new AppError(`Product not found for ID: ${item.productId}`, 404);
+        }
+
         const subtotal = item.quantity * variant.price;
         orderItems.push({
           productId: item.productId,
           variantSku: item.variantSku,
+          nameSnapshot: `${product.name} (${variant.name || variant.sku})`,
+          priceSnapshot: variant.price,
           quantity: item.quantity,
-          price: variant.price,
-          subtotal,
         });
 
         orderSubtotal += subtotal;
@@ -62,10 +70,18 @@ export const createCheckout = catchAsync(async (req, res) => {
       const shippingCost = 0;
       const total = orderSubtotal + tax + shippingCost;
 
+      // Validate Pay-on-pickup eligibility
+      if (paymentMethod === 'pay_on_pickup') {
+        const eligible = isPayOnPickupEligible({ total, shippingAddress });
+        if (!eligible) {
+          throw new AppError("Order not eligible for pay-on-pickup based on location or total amount", 400);
+        }
+      }
+
       const order = await Order.create(
         [
           {
-            user: userId,
+            userId,
             items: orderItems,
             shippingAddress,
             subtotal: orderSubtotal,
@@ -74,6 +90,7 @@ export const createCheckout = catchAsync(async (req, res) => {
             total,
             paymentMethod,
             paymentStatus: "pending",
+            status: ORDER_STATUS.PENDING_PAYMENT,
             orderStatus: "processing",
           },
         ],

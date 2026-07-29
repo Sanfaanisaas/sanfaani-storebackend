@@ -1,4 +1,6 @@
 import Order from "../models/Order.js";
+import { ORDER_STATUS } from "../utils/constants.js";
+import { isPayOnPickupEligible } from "../services/orderService.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import pdfkit from "pdfkit";
 import fs from "fs";
@@ -12,7 +14,7 @@ export const getMyOrders = catchAsync(async (req, res) => {
   const limit = parseInt(req.query.limit, 10) || 20;
   const skip = (page - 1) * limit;
 
-  const query = { user: req.user.id };
+  const query = { userId: req.user.id };
 
   const [orders, totalCount] = await Promise.all([
     Order.find(query)
@@ -40,7 +42,7 @@ export const getMyOrders = catchAsync(async (req, res) => {
  */
 export const uploadReceipt = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const order = await Order.findOne({ _id: id, user: req.user.id });
+  const order = await Order.findOne({ _id: id, userId: req.user.id });
 
   if (!order) {
     return res.status(404).json({
@@ -71,13 +73,57 @@ export const uploadReceipt = catchAsync(async (req, res) => {
  * Check if order is eligible for pickup
  */
 export const checkEligiblePickup = catchAsync(async (req, res) => {
-  // Real geolocation is a future ticket. Returning true unconditionally for now.
+  const { total, shippingAddress } = req.query;
+
+  const orderData = {
+    total,
+    shippingAddress
+  };
+
+  const eligible = isPayOnPickupEligible(orderData);
+
   res.status(200).json({
     success: true,
     data: {
-      eligible: true,
-      message: "Pickup eligibility stub: always true for now.",
+      eligible,
+      message: eligible 
+        ? "Order is eligible for pay-on-pickup." 
+        : "Order is not eligible for pay-on-pickup based on location or total amount.",
     },
+  });
+});
+
+/**
+ * Verify bank transfer payment (Admin only)
+ */
+export const verifyBankTransfer = catchAsync(async (req, res) => {
+  const { id } = req.params;
+
+  const order = await Order.findOneAndUpdate(
+    { 
+      _id: id, 
+      paymentMethod: 'bank_transfer', 
+      paymentStatus: 'pending' 
+    },
+    { 
+      paymentStatus: 'paid', 
+      verifiedBy: req.user.id, 
+      verifiedAt: new Date(),
+      status: ORDER_STATUS.PAID
+    },
+    { new: true }
+  );
+
+  if (!order) {
+    return res.status(400).json({
+      success: false,
+      message: "Order not eligible for verification (not found, already paid, or not bank transfer)",
+    });
+  }
+
+  res.status(200).json({
+    success: true,
+    data: order.toPublicOrder(),
   });
 });
 
@@ -86,7 +132,7 @@ export const checkEligiblePickup = catchAsync(async (req, res) => {
  */
 export const generateReceiptPDF = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const order = await Order.findById(id).populate("user", "email");
+  const order = await Order.findById(id).populate("userId", "email");
 
   if (!order) {
     return res.status(404).json({
@@ -110,12 +156,12 @@ export const generateReceiptPDF = catchAsync(async (req, res) => {
   doc.text(`Date: ${order.createdAt.toLocaleDateString()}`);
   doc.text(`Payment Method: ${order.paymentMethod}`);
   doc.text(`Payment Status: ${order.paymentStatus}`);
-  doc.text(`Order Status: ${order.orderStatus}`);
+  doc.text(`Order Status: ${order.status}`);
   doc.moveDown();
 
   doc.text("Items:", { underline: true });
   order.items.forEach((item) => {
-    doc.text(`${item.name} x ${item.quantity} - NGN ${item.price.toLocaleString()}`);
+    doc.text(`${item.nameSnapshot} x ${item.quantity} - NGN ${item.priceSnapshot.toLocaleString()}`);
   });
 
   doc.moveDown();

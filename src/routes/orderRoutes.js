@@ -3,11 +3,12 @@ import {
   getMyOrders, 
   uploadReceipt, 
   checkEligiblePickup, 
+  verifyBankTransfer,
   generateReceiptPDF 
 } from "../controllers/orderController.js";
 import { authenticate, authorize } from "../middleware/authenticate.js";
 import { validate } from "../middleware/validate.js";
-import { getOrdersQuerySchema } from "../utils/validators/orderValidators.js";
+import { getOrdersQuerySchema, checkEligiblePickupSchema } from "../utils/validators/orderValidators.js";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -56,7 +57,21 @@ router.get("/mine", authenticate, validate(getOrdersQuerySchema, "query"), getMy
  *       200:
  *         description: Eligibility status
  */
-router.get("/eligible-pickup", authenticate, checkEligiblePickup);
+router.get("/eligible-pickup", authenticate, validate(checkEligiblePickupSchema, "query"), checkEligiblePickup);
+
+/**
+ * @swagger
+ * /orders/{id}/verify-bank-transfer:
+ *   patch:
+ *     summary: Verify bank transfer payment (Admin only)
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Order verified successfully
+ */
+router.patch("/:id/verify-bank-transfer", authenticate, authorize("product_admin", "super_admin"), verifyBankTransfer);
 
 /**
  * @swagger

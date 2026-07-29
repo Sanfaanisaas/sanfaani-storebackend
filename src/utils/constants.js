@@ -1,5 +1,6 @@
 export const ORDER_STATUS = {
   DRAFT: "draft",
+  PENDING: "pending",
   PENDING_PAYMENT: "pending_payment",
   PAID: "paid",
   PROCESSING: "processing",
