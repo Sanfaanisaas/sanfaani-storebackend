@@ -91,7 +91,7 @@ router.post("/:id/upload-receipt", authenticate, upload.single("receipt"), uploa
  * @swagger
  * /orders/{id}/receipt:
  *   get:
- *     summary: Generate PDF receipt (Admin only)
+ *     summary: Generate PDF receipt
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -99,6 +99,6 @@ router.post("/:id/upload-receipt", authenticate, upload.single("receipt"), uploa
  *       200:
  *         description: PDF receipt streamed
  */
-router.get("/:id/receipt", authenticate, authorize("product_admin", "super_admin"), generateReceiptPDF);
+router.get("/:id/receipt", authenticate, generateReceiptPDF);
 
 export default router;

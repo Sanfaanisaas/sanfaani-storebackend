@@ -106,6 +106,7 @@ orderSchema.methods.toPublicOrder = function () {
     paymentMethod: this.paymentMethod,
     paymentStatus: this.paymentStatus,
     status: this.status,
+    receiptUrl: this.receiptUrl,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
   };

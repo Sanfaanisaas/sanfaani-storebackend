@@ -141,6 +141,17 @@ export const generateReceiptPDF = catchAsync(async (req, res) => {
     });
   }
 
+  // Allow access if user is the owner OR is an admin/authorized role
+  const isOwner = order.userId._id.toString() === req.user.id.toString();
+  const isAdmin = ["product_admin", "super_admin"].includes(req.user.role);
+
+  if (!isOwner && !isAdmin) {
+    return res.status(403).json({
+      success: false,
+      message: "You do not have permission to access this receipt",
+    });
+  }
+
   const doc = new pdfkit();
   const filename = `receipt_${order._id}.pdf`;
 
