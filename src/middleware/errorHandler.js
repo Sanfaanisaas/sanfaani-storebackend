@@ -1,4 +1,5 @@
 import { env } from "../config/env.js";
+import * as Sentry from "@sentry/node";
 
 const sendErrorDev = (err, res) => {
   res.status(err.statusCode).json({
@@ -29,6 +30,10 @@ const sendErrorProd = (err, res) => {
 export const errorHandler = (err, req, res, next) => {
   err.statusCode = err.statusCode || 500;
   err.status = err.status || "error";
+
+  if (env.sentryDsn) {
+    Sentry.captureException(err);
+  }
 
   if (env.nodeEnv === "development") {
     sendErrorDev(err, res);

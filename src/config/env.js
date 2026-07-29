@@ -11,6 +11,15 @@ const envSchema = z.object({
   PAYSTACK_SECRET_KEY: z.string().startsWith("sk_"),
   PAYSTACK_CALLBACK_URL: z.string().url(),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  SENTRY_DSN: z.string().url().optional(),
+}).refine((data) => {
+  if (data.NODE_ENV === "production") {
+    return data.PAYSTACK_SECRET_KEY.startsWith("sk_live_");
+  }
+  return data.PAYSTACK_SECRET_KEY.startsWith("sk_test_");
+}, {
+  message: "PAYSTACK_SECRET_KEY mode must match NODE_ENV (sk_live_ for production, sk_test_ otherwise)",
+  path: ["PAYSTACK_SECRET_KEY"],
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -28,4 +37,5 @@ export const env = {
   paystackSecretKey: parsed.data.PAYSTACK_SECRET_KEY,
   paystackCallbackUrl: parsed.data.PAYSTACK_CALLBACK_URL,
   nodeEnv: parsed.data.NODE_ENV,
+  sentryDsn: parsed.data.SENTRY_DSN,
 };
