@@ -34,6 +34,8 @@ const RepairSchema = new Schema({
   },
   intakePhotos: [String],
   intakeCondition: String,
+  diagnosisNotes: String,
+  estimatedCost: Number,
 }, { timestamps: true });
 
 RepairSchema.pre("validate", function () {

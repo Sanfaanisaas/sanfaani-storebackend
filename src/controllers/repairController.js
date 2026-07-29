@@ -26,3 +26,22 @@ export const intakeRepair = catchAsync(async (req, res) => {
     data: repair
   });
 });
+
+export const assignTechnician = catchAsync(async (req, res) => {
+  const { technicianId } = req.body;
+  const repair = await repairService.assignTechnician(req.params.id, technicianId);
+
+  res.status(200).json({
+    success: true,
+    data: repair
+  });
+});
+
+export const recordDiagnosis = catchAsync(async (req, res) => {
+  const repair = await repairService.recordDiagnosis(req.params.id, req.user.id, req.body);
+
+  res.status(200).json({
+    success: true,
+    data: repair
+  });
+});

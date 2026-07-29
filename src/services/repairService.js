@@ -22,3 +22,34 @@ export const intakeRepair = async (repairId, { intakePhotos, intakeCondition }) 
   await repair.save();
   return repair;
 };
+
+export const assignTechnician = async (repairId, technicianId) => {
+  const repair = await Repair.findById(repairId);
+  if (!repair) {
+    throw new AppError("Repair not found.", 404);
+  }
+
+  repair.technician = technicianId;
+  // Status DIAGNOSING is NOT automatic on assignment per requirement.
+  await repair.save();
+  return repair;
+};
+
+export const recordDiagnosis = async (repairId, technicianId, { diagnosisNotes, estimatedCost }) => {
+  const repair = await Repair.findById(repairId);
+  if (!repair) {
+    throw new AppError("Repair not found.", 404);
+  }
+
+  // HARD GATE: req.user.id must equal repair.technician.toString()
+  if (!repair.technician || repair.technician.toString() !== technicianId) {
+    throw new AppError("You are not the assigned technician for this repair.", 403);
+  }
+
+  repair.diagnosisNotes = diagnosisNotes;
+  repair.estimatedCost = estimatedCost;
+  // Requirement: status -> QUOTE_SENT is NOT set here.
+  
+  await repair.save();
+  return repair;
+};
