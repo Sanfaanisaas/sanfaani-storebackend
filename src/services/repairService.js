@@ -53,3 +53,21 @@ export const recordDiagnosis = async (repairId, technicianId, { diagnosisNotes, 
   await repair.save();
   return repair;
 };
+
+export const addWorkLogEntry = async (repairId, authorId, note) => {
+  const repair = await Repair.findByIdAndUpdate(
+    repairId,
+    { 
+      $push: { 
+        workLog: { note, author: authorId } 
+      } 
+    },
+    { returnDocument: 'after', runValidators: true }
+  ).populate("workLog.author", "name role");
+
+  if (!repair) {
+    throw new AppError("Repair not found.", 404);
+  }
+
+  return repair;
+};

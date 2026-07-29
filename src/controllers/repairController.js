@@ -74,3 +74,13 @@ export const startRepair = catchAsync(async (req, res) => {
     data: repair
   });
 });
+
+export const addWorkLog = catchAsync(async (req, res) => {
+  const { note } = req.body;
+  const repair = await repairService.addWorkLogEntry(req.params.id, req.user.id, note);
+
+  res.status(201).json({
+    success: true,
+    data: repair
+  });
+});

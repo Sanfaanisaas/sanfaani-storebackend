@@ -9,7 +9,8 @@ import {
   recordDiagnosis,
   createQuote,
   approveQuote,
-  startRepair
+  startRepair,
+  addWorkLog
 } from "../controllers/repairController.js";
 import { USER_ROLES } from "../utils/constants.js";
 
@@ -56,6 +57,13 @@ router.patch(
   authenticate,
   authorize(USER_ROLES.TECHNICIAN, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN),
   startRepair
+);
+
+router.post(
+  "/:id/log",
+  authenticate,
+  authorize(USER_ROLES.TECHNICIAN, USER_ROLES.QC_OFFICER, USER_ROLES.STORE_OPERATOR, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN),
+  addWorkLog
 );
 
 export default router;

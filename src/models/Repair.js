@@ -36,6 +36,11 @@ const RepairSchema = new Schema({
   intakeCondition: String,
   diagnosisNotes: String,
   estimatedCost: Number,
+  workLog: [{
+    note: { type: String, required: true },
+    author: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    createdAt: { type: Date, default: Date.now },
+  }],
 }, { timestamps: true });
 
 RepairSchema.pre("validate", function () {
