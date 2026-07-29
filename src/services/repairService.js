@@ -65,9 +65,34 @@ export const addWorkLogEntry = async (repairId, authorId, note) => {
     { returnDocument: 'after', runValidators: true }
   ).populate("workLog.author", "name role");
 
+  return repair;
+};
+
+export const performQC = async (repairId, qcOfficerId, { passed, note }) => {
+  const repair = await Repair.findById(repairId);
   if (!repair) {
     throw new AppError("Repair not found.", 404);
   }
 
+  // HARD GATE: A technician who also happens to hold qc_officer cannot QC their own repair.
+  if (repair.technician && repair.technician.toString() === qcOfficerId) {
+    throw new AppError("Technicians cannot QC their own work.", 403);
+  }
+
+  if (passed) {
+    repair.status = REPAIR_STATUS.READY;
+  } else {
+    repair.status = REPAIR_STATUS.IN_REPAIR;
+  }
+
+  if (note) {
+    repair.workLog.push({ note: `QC ${passed ? 'PASSED' : 'FAILED'}: ${note}`, author: qcOfficerId });
+  } else if (!passed) {
+     throw new AppError("Work log entry explaining why is required for QC failure.", 400);
+  } else {
+    repair.workLog.push({ note: `QC PASSED`, author: qcOfficerId });
+  }
+
+  await repair.save();
   return repair;
 };

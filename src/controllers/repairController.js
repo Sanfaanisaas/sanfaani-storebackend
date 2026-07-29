@@ -84,3 +84,12 @@ export const addWorkLog = catchAsync(async (req, res) => {
     data: repair
   });
 });
+
+export const performQC = catchAsync(async (req, res) => {
+  const repair = await repairService.performQC(req.params.id, req.user.id, req.body);
+
+  res.status(200).json({
+    success: true,
+    data: repair
+  });
+});
