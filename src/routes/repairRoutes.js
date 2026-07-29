@@ -1,7 +1,10 @@
 import { Router } from "express";
 import { authenticate, authorize } from "../middleware/authenticate.js";
 import { validate } from "../middleware/validate.js";
-import { createRepairSchema } from "../utils/validators/repairValidators.js";
+import { 
+  createRepairSchema, 
+  getRepairsQuerySchema 
+} from "../utils/validators/repairValidators.js";
 import { 
   createRepair, 
   intakeRepair, 
@@ -10,10 +13,12 @@ import {
   createQuote,
   approveQuote,
   startRepair,
+  completeRepairWork,
   addWorkLog,
   performQC,
   handoverRepair,
-  trackRepair
+  trackRepair,
+  getRepairQueue
 } from "../controllers/repairController.js";
 import { USER_ROLES } from "../utils/constants.js";
 
@@ -62,6 +67,13 @@ router.patch(
   startRepair
 );
 
+router.patch(
+  "/:id/complete",
+  authenticate,
+  authorize(USER_ROLES.TECHNICIAN),
+  completeRepairWork
+);
+
 router.post(
   "/:id/log",
   authenticate,
@@ -84,5 +96,25 @@ router.patch(
 );
 
 router.get("/:id/track", trackRepair);
+
+router.get(
+  "/queue",
+  authenticate,
+  authorize(
+    USER_ROLES.STORE_OPERATOR,
+    USER_ROLES.TECHNICIAN,
+    USER_ROLES.QC_OFFICER,
+    USER_ROLES.SALES_ADVISOR,
+    USER_ROLES.INVENTORY_OFFICER,
+    USER_ROLES.FINANCE_OFFICER,
+    USER_ROLES.SUPPORT_OFFICER,
+    USER_ROLES.OPS_MANAGER,
+    USER_ROLES.PRODUCT_ADMIN,
+    USER_ROLES.TECH_ADMIN,
+    USER_ROLES.SUPER_ADMIN
+  ),
+  validate(getRepairsQuerySchema, "query"),
+  getRepairQueue
+);
 
 export default router;

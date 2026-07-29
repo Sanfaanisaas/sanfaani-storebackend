@@ -6,8 +6,8 @@ import Variant from "../models/Variant.js";
 import Product from "../models/Product.js";
 import Order from "../models/Order.js";
 import { isPayOnPickupEligible } from "../services/orderService.js";
-
-import { ORDER_STATUS } from "../utils/constants.js";
+import { recordStockMovement } from "../services/inventoryService.js";
+import { ORDER_STATUS, STOCK_MOVEMENT_REASON } from "../utils/constants.js";
 
 export const createCheckout = catchAsync(async (req, res) => {
   const userId = req.user.id;
@@ -36,16 +36,14 @@ export const createCheckout = catchAsync(async (req, res) => {
           throw new AppError(`Variant not found for SKU: ${item.variantSku}`, 404);
         }
 
-        // Atomic reservation: check and mutation are one operation
-        const updated = await Variant.findOneAndUpdate(
-          { sku: item.variantSku, inStock: { $gte: item.quantity } },
-          { $inc: { inStock: -item.quantity } },
-          { new: true, session }
+        // Atomic reservation: check and mutation are one operation via recordStockMovement
+        const { variant: updated } = await recordStockMovement(
+          variant._id,
+          -item.quantity,
+          STOCK_MOVEMENT_REASON.SALE,
+          userId,
+          session
         );
-
-        if (!updated) {
-          throw new AppError(`Insufficient stock for ${item.variantSku}`, 409);
-        }
 
         // Build order item snapshot
         const product = await Product.findById(item.productId).session(session);

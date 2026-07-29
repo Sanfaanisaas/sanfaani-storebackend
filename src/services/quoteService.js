@@ -2,6 +2,7 @@ import Quote from "../models/Quote.js";
 import Repair from "../models/Repair.js";
 import AppError from "../utils/AppError.js";
 import { QUOTE_STATUS, REPAIR_STATUS } from "../utils/constants.js";
+import { writeAuditLog } from "./auditService.js";
 
 export const createNewQuoteVersion = async (repairId, lineItems, userId) => {
   const repair = await Repair.findById(repairId);
@@ -65,6 +66,14 @@ export const approveQuote = async (repairId, quoteId, userId, userRole) => {
 
   quote.status = QUOTE_STATUS.ACCEPTED;
   await quote.save();
+
+  await writeAuditLog(
+    userId,
+    'QUOTE_APPROVED',
+    'Quote',
+    quote._id,
+    { repairId: repair._id, total: quote.total }
+  );
 
   // Data integrity check: log if other quotes are still SENT/VIEWED
   const lingeringQuotes = await Quote.find({

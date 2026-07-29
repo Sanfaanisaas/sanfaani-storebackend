@@ -1,5 +1,7 @@
 import Order from "../models/Order.js";
+import mongoose from "mongoose";
 import { ORDER_STATUS } from "../utils/constants.js";
+import { writeAuditLog } from "../services/auditService.js";
 import { isPayOnPickupEligible } from "../services/orderService.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import pdfkit from "pdfkit";
@@ -121,6 +123,14 @@ export const verifyBankTransfer = catchAsync(async (req, res) => {
     });
   }
 
+  await writeAuditLog(
+    req.user.id,
+    'BANK_TRANSFER_VERIFIED',
+    'Order',
+    order._id,
+    { previousStatus: 'pending', newStatus: 'paid' }
+  );
+
   res.status(200).json({
     success: true,
     data: order.toPublicOrder(),
@@ -182,4 +192,62 @@ export const generateReceiptPDF = catchAsync(async (req, res) => {
   doc.fontSize(14).text(`Total: NGN ${order.total.toLocaleString()}`, { bold: true });
 
   doc.end();
+});
+
+/**
+ * Filterable order queue for staff
+ */
+export const getOrderQueue = catchAsync(async (req, res) => {
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+  const skip = (page - 1) * limit;
+
+  const { status, paymentMethod, dateFrom, dateTo, search } = req.query;
+  const query = {};
+
+  if (status) query.status = status;
+  if (paymentMethod) query.paymentMethod = paymentMethod;
+  if (dateFrom || dateTo) {
+    query.createdAt = {};
+    if (dateFrom) query.createdAt.$gte = new Date(dateFrom);
+    if (dateTo) query.createdAt.$lte = new Date(dateTo);
+  }
+
+  if (search) {
+    // Escape search for regex
+    const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const searchRegex = new RegExp(escapedSearch, 'i');
+    
+    // Search by Order ID or User Email
+    // Note: To search by email, we might need to find users first or use aggregation
+    const matchingUsers = await mongoose.model('User').find({ email: searchRegex }).select('_id');
+    const userIds = matchingUsers.map(u => u._id);
+
+    query.$or = [
+      { userId: { $in: userIds } }
+    ];
+
+    if (mongoose.Types.ObjectId.isValid(search)) {
+        query.$or.push({ _id: search });
+    }
+  }
+
+  const [orders, total] = await Promise.all([
+    Order.find(query)
+      .populate('userId', 'name email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    Order.countDocuments(query),
+  ]);
+
+  res.status(200).json({
+    success: true,
+    data: orders,
+    pagination: {
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+    },
+  });
 });

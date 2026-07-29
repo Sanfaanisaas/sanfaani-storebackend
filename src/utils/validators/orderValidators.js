@@ -17,3 +17,13 @@ export const checkEligiblePickupSchema = z.object({
     city: z.string().min(1),
   }).passthrough()),
 });
+
+export const getOrdersQueueQuerySchema = z.object({
+  page: z.preprocess((val) => parseInt(val, 10), z.number().int().min(1).default(1)).optional(),
+  limit: z.preprocess((val) => parseInt(val, 10), z.number().int().min(1).max(100).default(20)).optional(),
+  status: z.string().optional(),
+  paymentMethod: z.string().optional(),
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional(),
+  search: z.string().optional(),
+});

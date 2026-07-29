@@ -12,3 +12,13 @@ export const createRepairSchema = z.object({
     errorMap: () => ({ message: "You must acknowledge the privacy policy" }),
   }),
 });
+
+export const getRepairsQuerySchema = z.object({
+  page: z.preprocess((val) => parseInt(val, 10), z.number().int().min(1).default(1)).optional(),
+  limit: z.preprocess((val) => parseInt(val, 10), z.number().int().min(1).max(100).default(20)).optional(),
+  status: z.string().optional(),
+  technician: z.string().optional(),
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional(),
+  search: z.string().optional(),
+});

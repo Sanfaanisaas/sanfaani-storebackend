@@ -4,11 +4,16 @@ import {
   uploadReceipt, 
   checkEligiblePickup, 
   verifyBankTransfer,
-  generateReceiptPDF 
+  generateReceiptPDF,
+  getOrderQueue
 } from "../controllers/orderController.js";
 import { authenticate, authorize } from "../middleware/authenticate.js";
 import { validate } from "../middleware/validate.js";
-import { getOrdersQuerySchema, checkEligiblePickupSchema } from "../utils/validators/orderValidators.js";
+import { 
+  getOrdersQuerySchema, 
+  checkEligiblePickupSchema,
+  getOrdersQueueQuerySchema
+} from "../utils/validators/orderValidators.js";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -100,5 +105,26 @@ router.post("/:id/upload-receipt", authenticate, upload.single("receipt"), uploa
  *         description: PDF receipt streamed
  */
 router.get("/:id/receipt", authenticate, generateReceiptPDF);
+
+router.get(
+  "/queue",
+  authenticate,
+  authorize(
+    "store_operator",
+    "technician",
+    "qc_officer",
+    "sales_advisor",
+    "inventory_officer",
+    "support_officer",
+    "finance_officer",
+    "merchandiser",
+    "ops_manager",
+    "product_admin",
+    "tech_admin",
+    "super_admin"
+  ),
+  validate(getOrdersQueueQuerySchema, "query"),
+  getOrderQueue
+);
 
 export default router;

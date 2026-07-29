@@ -15,6 +15,8 @@ import checkoutRoutes from "./routes/checkoutRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import repairRoutes from "./routes/repairRoutes.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
+import inventoryRoutes from "./routes/inventoryRoutes.js";
 
 const app = express();
 
@@ -46,6 +48,8 @@ app.use("/api/checkout", checkoutRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/repairs", repairRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/inventory", inventoryRoutes);
 
 // Handle unhandled routes
 app.all("/*path", (req, res, next) => {

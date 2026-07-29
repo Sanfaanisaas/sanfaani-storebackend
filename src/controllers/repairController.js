@@ -75,6 +75,15 @@ export const startRepair = catchAsync(async (req, res) => {
   });
 });
 
+export const completeRepairWork = catchAsync(async (req, res) => {
+  const repair = await repairService.completeRepairWork(req.params.id, req.user.id, req.body);
+
+  res.status(200).json({
+    success: true,
+    data: repair
+  });
+});
+
 export const addWorkLog = catchAsync(async (req, res) => {
   const { note } = req.body;
   const repair = await repairService.addWorkLogEntry(req.params.id, req.user.id, note);
@@ -109,5 +118,59 @@ export const trackRepair = catchAsync(async (req, res) => {
   res.status(200).json({
     success: true,
     data: publicData
+  });
+});
+
+/**
+ * Filterable repair queue for staff
+ */
+export const getRepairQueue = catchAsync(async (req, res) => {
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+  const skip = (page - 1) * limit;
+
+  const { status, technician, dateFrom, dateTo, search } = req.query;
+  const query = {};
+
+  if (status) query.status = status;
+  if (technician) query.technician = technician;
+  if (dateFrom || dateTo) {
+    query.createdAt = {};
+    if (dateFrom) query.createdAt.$gte = new Date(dateFrom);
+    if (dateTo) query.createdAt.$lte = new Date(dateTo);
+  }
+
+  if (search) {
+    const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const searchRegex = new RegExp(escapedSearch, 'i');
+
+    const matchingUsers = await repairService.findUsersByEmailOrName(searchRegex);
+    const userIds = matchingUsers.map(u => u._id);
+
+    query.$or = [
+      { customer: { $in: userIds } },
+      { 'device.serialNumber': searchRegex },
+      { 'device.model': searchRegex }
+    ];
+  }
+
+  const [repairs, total] = await Promise.all([
+    Repair.find(query)
+      .populate('customer', 'name email')
+      .populate('technician', 'name')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    Repair.countDocuments(query),
+  ]);
+
+  res.status(200).json({
+    success: true,
+    data: repairs,
+    pagination: {
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+    },
   });
 });

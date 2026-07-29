@@ -79,3 +79,11 @@ export const PRODUCT_CONDITION = Object.freeze({
 export const LOW_STOCK_THRESHOLD = 5;
 
 export const WARRANTY_PERIOD_DAYS = 90;
+
+export const STOCK_MOVEMENT_REASON = {
+  SALE: 'sale',
+  RESTOCK: 'restock',
+  ADJUSTMENT: 'adjustment',
+  RETURN: 'return',
+  DAMAGE: 'damage',
+};

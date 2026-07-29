@@ -4,6 +4,7 @@ import Quote from "../models/Quote.js";
 import AppError from "../utils/AppError.js";
 import { REPAIR_STATUS, WARRANTY_PERIOD_DAYS, QUOTE_STATUS } from "../utils/constants.js";
 import mongoose from "mongoose";
+import { writeAuditLog } from "./auditService.js";
 
 export const intakeRepair = async (repairId, { intakePhotos, intakeCondition }) => {
   if (!intakePhotos || intakePhotos.length === 0) {
@@ -57,6 +58,30 @@ export const recordDiagnosis = async (repairId, technicianId, { diagnosisNotes, 
   return repair;
 };
 
+export const completeRepairWork = async (repairId, technicianId, { notes }) => {
+  const repair = await Repair.findById(repairId);
+  if (!repair) {
+    throw new AppError("Repair not found.", 404);
+  }
+
+  if (!repair.technician || repair.technician.toString() !== technicianId) {
+    throw new AppError("You are not the assigned technician for this repair.", 403);
+  }
+
+  if (repair.status !== REPAIR_STATUS.IN_REPAIR) {
+    throw new AppError("Only repairs in 'in_repair' status can be marked as complete.", 400);
+  }
+
+  repair.status = REPAIR_STATUS.QC;
+  repair.workLog.push({ 
+    note: `Work completed by technician. Transitioned to QC. ${notes || ''}`, 
+    author: technicianId 
+  });
+
+  await repair.save();
+  return repair;
+};
+
 export const addWorkLogEntry = async (repairId, authorId, note) => {
   const repair = await Repair.findByIdAndUpdate(
     repairId,
@@ -88,15 +113,16 @@ export const performQC = async (repairId, qcOfficerId, { passed, note }) => {
     repair.status = REPAIR_STATUS.IN_REPAIR;
   }
 
-  if (note) {
-    repair.workLog.push({ note: `QC ${passed ? 'PASSED' : 'FAILED'}: ${note}`, author: qcOfficerId });
-  } else if (!passed) {
-     throw new AppError("Work log entry explaining why is required for QC failure.", 400);
-  } else {
-    repair.workLog.push({ note: `QC PASSED`, author: qcOfficerId });
-  }
-
   await repair.save();
+
+  await writeAuditLog(
+    qcOfficerId,
+    passed ? 'QC_PASSED' : 'QC_FAILED',
+    'Repair',
+    repair._id,
+    { note }
+  );
+
   return repair;
 };
 
@@ -168,4 +194,13 @@ export const getRepairStatus = async (repairId) => {
     throw new AppError("Repair not found.", 404);
   }
   return toPublicRepair(repair);
+};
+
+export const findUsersByEmailOrName = async (searchRegex) => {
+  return mongoose.model('User').find({
+    $or: [
+      { name: searchRegex },
+      { email: searchRegex }
+    ]
+  }).select('_id');
 };
