@@ -27,11 +27,10 @@ const AuditLogSchema = new Schema({
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 // Prevent updates or deletes
-AuditLogSchema.pre('save', function(next) {
+AuditLogSchema.pre('save', function() {
   if (!this.isNew) {
-    return next(new Error('AuditLog entries are append-only.'));
+    throw new Error('AuditLog entries are append-only.');
   }
-  next();
 });
 
 export default mongoose.model("AuditLog", AuditLogSchema);

@@ -2,6 +2,7 @@ import Repair from "../models/Repair.js";
 import Quote from "../models/Quote.js";
 import Order from "../models/Order.js";
 import Variant from "../models/Variant.js";
+import SupportTicket from "../models/SupportTicket.js";
 import AppError from "../utils/AppError.js";
 import { USER_ROLES, LOW_STOCK_THRESHOLD } from "../utils/constants.js";
 
@@ -49,11 +50,10 @@ const getFinanceOfficerQueue = async () => {
     .populate('userId', 'name email');
 };
 
-const getSupportOfficerQueue = async () => {
-  return {
-    data: [],
-    note: "This queue activates once Phase 7.2 ships SupportTicket"
-  };
+export const getSupportOfficerQueue = async () => {
+  return SupportTicket.find({ status: { $in: ['open', 'in_progress'] } })
+    .populate('customer', 'name email')
+    .sort({ updatedAt: -1 });
 };
 
 export const getQueueForRole = async (user) => {

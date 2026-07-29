@@ -80,6 +80,21 @@ export const LOW_STOCK_THRESHOLD = 5;
 
 export const WARRANTY_PERIOD_DAYS = 90;
 
+export const CLAIM_STATUS = Object.freeze({
+  SUBMITTED: 'submitted',
+  UNDER_REVIEW: 'under_review',
+  APPROVED: 'approved',
+  DENIED: 'denied',
+  RESOLVED: 'resolved',
+});
+
+export const SUPPORT_TICKET_STATUS = Object.freeze({
+  OPEN: 'open',
+  IN_PROGRESS: 'in_progress',
+  RESOLVED: 'resolved',
+  CLOSED: 'closed',
+});
+
 export const STOCK_MOVEMENT_REASON = {
   SALE: 'sale',
   RESTOCK: 'restock',

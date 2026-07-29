@@ -17,6 +17,9 @@ import paymentRoutes from "./routes/paymentRoutes.js";
 import repairRoutes from "./routes/repairRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
 import inventoryRoutes from "./routes/inventoryRoutes.js";
+import warrantyRoutes from "./routes/warrantyRoutes.js";
+import claimRoutes from "./routes/claimRoutes.js";
+import supportTicketRoutes from "./routes/supportTicketRoutes.js";
 
 const app = express();
 
@@ -50,6 +53,9 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/repairs", repairRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/inventory", inventoryRoutes);
+app.use("/api/warranties", warrantyRoutes);
+app.use("/api/claims", claimRoutes);
+app.use("/api/support-tickets", supportTicketRoutes);
 
 // Handle unhandled routes
 app.all("/*path", (req, res, next) => {
