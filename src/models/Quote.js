@@ -15,16 +15,20 @@ const QuoteSchema = new Schema({
   },
   lineItems: [{
     description: { type: String, required: true },
-    cost: { type: Number, required: true },
+    amount: { type: Number, required: true },
   }],
-  total: {
+  totalAmount: {
     type: Number,
     required: true,
+  },
+  estimatedDays: {
+    type: Number,
+    default: 3,
   },
   status: {
     type: String,
     enum: Object.values(QUOTE_STATUS),
-    default: QUOTE_STATUS.DRAFT,
+    default: QUOTE_STATUS.PENDING,
   },
   createdBy: {
     type: Schema.Types.ObjectId,

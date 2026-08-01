@@ -23,14 +23,14 @@ export const createNewQuoteVersion = async (repairId, lineItems, userId) => {
   const latestQuote = await Quote.findOne({ repair: repairId }).sort({ version: -1 });
   const nextVersion = latestQuote ? latestQuote.version + 1 : 1;
 
-  const total = lineItems.reduce((acc, item) => acc + item.cost, 0);
+  const totalAmount = lineItems.reduce((acc, item) => acc + item.amount, 0);
 
   const newQuote = await Quote.create({
     repair: repairId,
     version: nextVersion,
     lineItems,
-    total,
-    status: QUOTE_STATUS.SENT,
+    totalAmount,
+    status: QUOTE_STATUS.PENDING,
     createdBy: userId
   });
 
