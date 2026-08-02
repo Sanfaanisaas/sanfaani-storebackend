@@ -17,6 +17,14 @@ const VariantSchema = new Schema({
   inStock: { type: Number, min: 0, required: false },
 });
 
+VariantSchema.methods.toPublicObject = function () {
+  const obj = this.toObject();
+  delete obj.costPrice;
+  delete obj.supplier;
+  delete obj.__v;
+  return obj;
+};
+
 VariantSchema.pre('validate', function (next) {
   const hasSourcing = this.sourcing != null;
   const hasStock = this.inStock != null;
