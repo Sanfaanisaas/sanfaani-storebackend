@@ -95,8 +95,6 @@ router.patch(
   handoverRepair
 );
 
-router.get("/:id/track", trackRepair);
-
 router.get(
   "/queue",
   authenticate,
@@ -116,5 +114,7 @@ router.get(
   validate(getRepairsQuerySchema, "query"),
   getRepairQueue
 );
+
+router.get("/:id/track", trackRepair);
 
 export default router;
