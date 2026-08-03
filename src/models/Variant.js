@@ -1,101 +1,37 @@
 import mongoose from "mongoose";
+const { Schema } = mongoose;
+import { PRODUCT_CONDITION } from "../utils/constants.js";
 
-const variantSchema = new mongoose.Schema(
-    {
-        product: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Product",
-            required: true,
-            index: true,
-        },
-        sku: {
-            type: String,
-            required: true,
-            unique: true,
-            trim: true,
-            uppercase: true,
-        },
-        attributes: {
-            // e.g. { color: "Black", storage: "128GB" } — flexible per product type
-            type: Map,
-            of: String,
-            default: {},
-        },
-        price: {
-            type: Number,
-            required: true,
-            min: 0,
-        },
-        costPrice: {
-            type: Number,
-            min: 0,
-            // internal only — never returned on public routes
-        },
-        supplier: {
-            name: { type: String, trim: true },
-            contact: { type: String, trim: true },
-            // internal only — never returned on public routes
-        },
-        in_stock: {
-            type: Boolean,
-            default: false,
-        },
-        stockQuantity: {
-            type: Number,
-            min: 0,
-            // required only when in_stock is true — enforced below, not here,
-            // since "required" can't be conditional on a sibling field declaratively
-        },
-        sourcing: {
-            type: Boolean,
-            default: false,
-        },
-        sourcingLeadTimeDays: {
-            type: Number,
-            min: 0,
-            // required only when sourcing is true — same reasoning as above
-        },
-    },
-    { timestamps: true }
-);
+const SourcingSchema = new Schema({
+  supplier: { type: String, required: true },
+  leadTimeDays: { type: Number, required: true, min: 0 },
+  costPrice: { type: Number, required: true, min: 0 },
+}, { _id: false });
 
-// The mutual-exclusion rule lives here, not in the controller, so it's
-// enforced no matter what creates or updates a Variant — controller,
-// seed script, admin import, migration, whatever calls .save() or
-// runs validators.
-variantSchema.pre("validate", function () {
-    if (this.in_stock === this.sourcing) {
-        // catches both-true AND both-false — a variant must resolve to
-        // exactly one fulfilment mode
-        throw new Error(
-            "Variant must be exactly one of in_stock or sourcing, never both or neither."
-        );
-    }
-
-    if (this.in_stock && (this.stockQuantity === undefined || this.stockQuantity === null)) {
-        throw new Error("in_stock variants require a stockQuantity.");
-    }
-
-    if (this.sourcing && (this.sourcingLeadTimeDays === undefined || this.sourcingLeadTimeDays === null)) {
-        throw new Error("sourcing variants require a sourcingLeadTimeDays.");
-    }
+const VariantSchema = new Schema({
+  sku: { type: String, required: true, unique: true },
+  attributes: { type: Schema.Types.Mixed, required: true },
+  price: { type: Number, required: true, min: 0 },
+  condition: { type: String, enum: Object.values(PRODUCT_CONDITION), required: true },
+  sourcing: { type: SourcingSchema, required: false },
+  inStock: { type: Number, min: 0, required: false },
 });
 
-variantSchema.methods.toPublicObject = function () {
-    return {
-        id: this._id,
-        product: this.product,
-        sku: this.sku,
-        attributes: this.attributes,
-        price: this.price,
-        in_stock: this.in_stock,
-        stockQuantity: this.in_stock ? this.stockQuantity : undefined,
-        sourcing: this.sourcing,
-        sourcingLeadTimeDays: this.sourcing ? this.sourcingLeadTimeDays : undefined,
-        // costPrice and supplier deliberately omitted
-    };
+VariantSchema.methods.toPublicObject = function () {
+  const obj = this.toObject();
+  delete obj.costPrice;
+  delete obj.supplier;
+  delete obj.__v;
+  return obj;
 };
 
-const Variant = mongoose.model("Variant", variantSchema);
+VariantSchema.pre('validate', function (next) {
+  const hasSourcing = this.sourcing != null;
+  const hasStock = this.inStock != null;
+  if (hasSourcing === hasStock) {
+    return next(new Error('A variant must have exactly one of `sourcing` or `inStock` — never both, never neither.'));
+  }
+  next();
+});
 
-export default Variant;
+export default mongoose.model("Variant", VariantSchema);

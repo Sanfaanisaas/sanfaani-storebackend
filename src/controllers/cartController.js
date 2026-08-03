@@ -1,117 +1,113 @@
 import Cart from "../models/Cart.js";
 import Variant from "../models/Variant.js";
+import Product from "../models/Product.js";
 import { catchAsync } from "../utils/catchAsync.js";
 
-const populateOptions = {
-  path: "items.variant",
-};
-
 /**
- * Map cart items to public objects using Variant.toPublicObject()
+ * Format cart for response
  */
-const formatCartResponse = (cart) => {
+const formatCartResponse = async (cart) => {
   if (!cart) return { items: [] };
   
-  const items = cart.items.map((item) => {
-    const variantObj = item.variant.toPublicObject ? item.variant.toPublicObject() : item.variant;
-    return {
-      variant: variantObj,
+  const items = [];
+  for (const item of cart.items) {
+    const variant = await Variant.findOne({ sku: item.variantSku });
+    const product = await Product.findById(item.productId);
+    items.push({
+      product: {
+        id: product?._id,
+        name: product?.name,
+      },
+      variantSku: item.variantSku,
+      price: variant?.price,
       quantity: item.quantity,
-    };
-  });
+      inStock: variant?.inStock,
+    });
+  }
 
   return { items };
 };
 
 export const getCart = catchAsync(async (req, res) => {
   const userId = req.user.id || req.user._id;
-  const cart = await Cart.findOne({ user: userId }).populate(populateOptions);
+  const cart = await Cart.findOne({ userId });
   
   res.status(200).json({
     success: true,
-    data: formatCartResponse(cart),
+    data: await formatCartResponse(cart),
   });
 });
 
 export const addItem = catchAsync(async (req, res) => {
-  const { variantId, quantity } = req.body;
+  const { productId, variantSku, quantity } = req.body;
   const userId = req.user.id || req.user._id;
 
-  const variant = await Variant.findById(variantId);
+  const variant = await Variant.findOne({ sku: variantSku });
   if (!variant) {
     return res.status(404).json({ success: false, message: "Variant not found" });
   }
 
-  if (!variant.in_stock) {
+  if (variant.inStock === 0) {
     return res.status(400).json({ success: false, message: "Variant is out of stock" });
   }
 
-  if (quantity > variant.stockQuantity) {
+  if (quantity > (variant.inStock || 0)) {
     return res.status(400).json({
       success: false,
-      message: `Requested quantity exceeds available stock (${variant.stockQuantity})`,
+      message: `Requested quantity exceeds available stock (${variant.inStock})`,
     });
   }
 
-  let cart = await Cart.findOne({ user: userId });
+  let cart = await Cart.findOne({ userId });
 
   if (!cart) {
-    cart = new Cart({ user: userId, items: [] });
+    cart = new Cart({ userId, items: [] });
   }
 
   const existingItemIndex = cart.items.findIndex(
-    (item) => item.variant.toString() === variantId
+    (item) => item.variantSku === variantSku
   );
 
   if (existingItemIndex > -1) {
     cart.items[existingItemIndex].quantity = quantity;
   } else {
-    cart.items.push({ variant: variantId, quantity });
+    cart.items.push({ productId, variantSku, quantity });
   }
 
   await cart.save();
-  await cart.populate(populateOptions);
 
   res.status(200).json({
     success: true,
-    data: formatCartResponse(cart),
+    data: await formatCartResponse(cart),
   });
 });
 
 export const removeItem = catchAsync(async (req, res) => {
-  const { variantId } = req.params;
+  const { variantSku } = req.params;
   const userId = req.user.id || req.user._id;
 
-  const cart = await Cart.findOne({ user: userId });
+  const cart = await Cart.findOne({ userId });
   if (cart) {
     cart.items = cart.items.filter(
-      (item) => item.variant.toString() !== variantId
+      (item) => item.variantSku !== variantSku
     );
     await cart.save();
-    await cart.populate(populateOptions);
   }
 
   res.status(200).json({
     success: true,
-    data: formatCartResponse(cart),
+    data: await formatCartResponse(cart),
   });
 });
 
 export const mergeCart = catchAsync(async (req, res) => {
-  const { guestItems } = req.body;
+  const { guestId } = req.body;
   const userId = req.user.id || req.user._id;
 
-  let cart = await Cart.findOne({ user: userId });
-
-  if (!cart) {
-    cart = new Cart({ user: userId, items: [] });
-  }
-
-  await cart.mergeGuestItems(guestItems);
-  await cart.populate(populateOptions);
+  const cart = await Cart.mergeGuestCartIntoUser(guestId, userId);
 
   res.status(200).json({
     success: true,
-    data: formatCartResponse(cart),
+    data: await formatCartResponse(cart),
   });
 });

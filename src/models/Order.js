@@ -1,37 +1,29 @@
 import mongoose from "mongoose";
+import { ORDER_STATUS } from "../utils/constants.js";
 
 const orderItemSchema = new mongoose.Schema(
   {
-    variant: {
+    productId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Variant",
+      ref: "Product",
       required: true,
     },
-    sku: {
+    variantSku: {
       type: String,
       required: true,
     },
-    name: {
+    nameSnapshot: {
       type: String,
       required: true,
     },
-    attributes: {
-      type: Map,
-      of: String,
-      default: {},
+    priceSnapshot: {
+      type: Number,
+      required: true,
     },
     quantity: {
       type: Number,
       required: true,
       min: 1,
-    },
-    price: {
-      type: Number,
-      required: true,
-    },
-    subtotal: {
-      type: Number,
-      required: true,
     },
   },
   { _id: false }
@@ -39,7 +31,7 @@ const orderItemSchema = new mongoose.Schema(
 
 const orderSchema = new mongoose.Schema(
   {
-    user: {
+    userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
@@ -69,6 +61,11 @@ const orderSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    status: {
+      type: String,
+      enum: Object.values(ORDER_STATUS),
+      default: ORDER_STATUS.PENDING,
+    },
     paymentMethod: {
       type: String,
       enum: ["paystack", "bank_transfer", "pay_on_pickup"],
@@ -79,17 +76,41 @@ const orderSchema = new mongoose.Schema(
       enum: ["pending", "paid", "failed"],
       default: "pending",
     },
-    orderStatus: {
-      type: String,
-      enum: ["processing", "shipped", "delivered", "cancelled"],
-      default: "processing",
-    },
     paymentReference: {
       type: String,
+    },
+    receiptUrl: {
+      type: String,
+    },
+    verifiedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    verifiedAt: {
+      type: Date,
     },
   },
   { timestamps: true }
 );
+
+orderSchema.methods.toPublicOrder = function () {
+  return {
+    id: this._id,
+    userId: this.userId,
+    items: this.items,
+    shippingAddress: this.shippingAddress,
+    subtotal: this.subtotal,
+    tax: this.tax,
+    shippingCost: this.shippingCost,
+    total: this.total,
+    paymentMethod: this.paymentMethod,
+    paymentStatus: this.paymentStatus,
+    status: this.status,
+    receiptUrl: this.receiptUrl,
+    createdAt: this.createdAt,
+    updatedAt: this.updatedAt,
+  };
+};
 
 const Order = mongoose.model("Order", orderSchema);
 

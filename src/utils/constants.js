@@ -1,5 +1,6 @@
 export const ORDER_STATUS = {
   DRAFT: "draft",
+  PENDING: "pending",
   PENDING_PAYMENT: "pending_payment",
   PAID: "paid",
   PROCESSING: "processing",
@@ -23,31 +24,39 @@ export const PAYMENT_STATUS = {
 };
 
 export const REPAIR_STATUS = {
-  REQUESTED: "requested",
-  INTAKE_SCHEDULED: "intake_scheduled",
-  RECEIVED: "received",
-  DIAGNOSING: "diagnosing",
-  QUOTE_SENT: "quote_sent",
-  AWAITING_APPROVAL: "awaiting_approval",
-  APPROVED: "approved",
-  AWAITING_PARTS: "awaiting_parts",
-  IN_REPAIR: "in_repair",
-  PAUSED: "paused",
-  QC: "qc",
-  READY: "ready",
-  HANDED_OVER: "handed_over",
-  DECLINED: "declined",
-  CANCELLED: "cancelled",
+  REQUESTED: "REQUESTED",
+  INTAKE_PENDING: "INTAKE_PENDING",
+  INTAKE_SCHEDULED: "INTAKE_SCHEDULED",
+  RECEIVED: "RECEIVED",
+  IN_CUSTODY: "IN_CUSTODY",
+  DIAGNOSING: "DIAGNOSING",
+  QUOTE_PENDING: "QUOTE_PENDING",
+  QUOTE_SENT: "QUOTE_SENT",
+  AWAITING_APPROVAL: "AWAITING_APPROVAL",
+  APPROVED: "APPROVED",
+  AWAITING_PARTS: "AWAITING_PARTS",
+  IN_REPAIR: "IN_REPAIR",
+  PAUSED: "PAUSED",
+  QC_PENDING: "QC_PENDING",
+  QC: "QC",
+  READY: "READY",
+  READY_FOR_PICKUP: "READY_FOR_PICKUP",
+  HANDED_OVER: "HANDED_OVER",
+  COMPLETED: "COMPLETED",
+  DECLINED: "DECLINED",
+  CANCELLED: "CANCELLED",
 };
 
 export const QUOTE_STATUS = {
-  DRAFT: "draft",
-  SENT: "sent",
-  VIEWED: "viewed",
-  ACCEPTED: "accepted",
-  DECLINED: "declined",
-  EXPIRED: "expired",
-  SUPERSEDED: "superseded",
+  DRAFT: "DRAFT",
+  PENDING: "PENDING",
+  SENT: "SENT",
+  VIEWED: "VIEWED",
+  ACCEPTED: "ACCEPTED",
+  APPROVED: "APPROVED",
+  DECLINED: "DECLINED",
+  EXPIRED: "EXPIRED",
+  SUPERSEDED: "SUPERSEDED",
 };
 
 
@@ -65,4 +74,39 @@ export const USER_ROLES = {
   PRODUCT_ADMIN: "product_admin",
   TECH_ADMIN: "tech_admin",
   SUPER_ADMIN: "super_admin",
+};
+
+export const PRODUCT_CONDITION = Object.freeze({
+  NEW: 'new',
+  REFURBISHED_GRADE_A: 'refurbished_grade_a',
+  REFURBISHED_GRADE_B: 'refurbished_grade_b',
+  USED_GRADE_A: 'used_grade_a',
+  USED_GRADE_B: 'used_grade_b',
+});
+
+export const LOW_STOCK_THRESHOLD = 5;
+
+export const WARRANTY_PERIOD_DAYS = 90;
+
+export const CLAIM_STATUS = Object.freeze({
+  SUBMITTED: 'submitted',
+  UNDER_REVIEW: 'under_review',
+  APPROVED: 'approved',
+  DENIED: 'denied',
+  RESOLVED: 'resolved',
+});
+
+export const SUPPORT_TICKET_STATUS = Object.freeze({
+  OPEN: 'open',
+  IN_PROGRESS: 'in_progress',
+  RESOLVED: 'resolved',
+  CLOSED: 'closed',
+});
+
+export const STOCK_MOVEMENT_REASON = {
+  SALE: 'sale',
+  RESTOCK: 'restock',
+  ADJUSTMENT: 'adjustment',
+  RETURN: 'return',
+  DAMAGE: 'damage',
 };

@@ -1,0 +1,55 @@
+### 1. Register and Login
+# @name registerUser
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Order Test User",
+  "email": "order_test@example.com",
+  "password": "password123",
+  "phone": "09010172138"
+}
+
+### Login
+# @name loginUser
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "order_test@example.com",
+  "password": "password123"
+}
+
+### 2. Get My Orders (Empty)
+GET {{baseUrl}}/orders/mine
+Authorization: Bearer {{loginUser.response.body.data.token}}
+
+### 3. Get My Orders with Pagination
+GET {{baseUrl}}/orders/mine?page=1&limit=5
+Authorization: Bearer {{loginUser.response.body.data.token}}
+
+### 4. Register and Login another user (Data Isolation Check)
+# @name registerUser2
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Other User",
+  "email": "other_user@example.com",
+  "password": "password123",
+  "phone": "09010172139"
+}
+
+### Login other user
+# @name loginUser2
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "other_user@example.com",
+  "password": "password123"
+}
+
+### Get other user's orders (should be empty even if first user has orders)
+GET {{baseUrl}}/orders/mine
+Authorization: Bearer {{loginUser2.response.body.data.token}}

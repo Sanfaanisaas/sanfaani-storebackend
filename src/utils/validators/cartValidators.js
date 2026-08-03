@@ -6,15 +6,11 @@ const objectIdSchema = z.string().refine((val) => mongoose.Types.ObjectId.isVali
 });
 
 export const addItemSchema = z.object({
-  variantId: objectIdSchema,
+  productId: objectIdSchema,
+  variantSku: z.string().min(1, "Variant SKU is required"),
   quantity: z.number().int().min(1, "Quantity must be at least 1"),
 });
 
 export const mergeSchema = z.object({
-  guestItems: z.array(
-    z.object({
-      variantId: objectIdSchema,
-      quantity: z.number().int().min(1, "Quantity must be at least 1"),
-    })
-  ),
+  guestId: z.string().min(1, "Guest ID is required"),
 });

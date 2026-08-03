@@ -1,98 +1,85 @@
 import mongoose from "mongoose";
 import { catchAsync } from "../utils/catchAsync.js";
+import AppError from "../utils/AppError.js";
 import Cart from "../models/Cart.js";
 import Variant from "../models/Variant.js";
 import Product from "../models/Product.js";
 import Order from "../models/Order.js";
+import { isPayOnPickupEligible } from "../services/orderService.js";
+import { recordStockMovement } from "../services/inventoryService.js";
+import { ORDER_STATUS, STOCK_MOVEMENT_REASON } from "../utils/constants.js";
 
 export const createCheckout = catchAsync(async (req, res) => {
-  const { items: requestItems, shippingAddress, paymentMethod } = req.body;
   const userId = req.user.id;
+  const { shippingAddress, paymentMethod } = req.body;
 
   const session = await mongoose.startSession();
   let createdOrder;
 
   try {
     await session.withTransaction(async () => {
-      // a. Fetch user's cart
-      const cart = await Cart.findOne({ user: userId })
-        .populate({
-          path: "items.variant",
-          populate: { path: "product" },
-        })
-        .session(session);
+      // 1. Fetch user's cart (Server-side Cart)
+      const cart = await Cart.findOne({ userId }).session(session);
 
       if (!cart || cart.items.length === 0) {
-        throw new Error("Cart is empty");
+        throw new AppError("Cart is empty", 400);
       }
 
       const orderItems = [];
       let orderSubtotal = 0;
 
-      // b. Process each item from request
-      for (const reqItem of requestItems) {
-        const { variantId, price: reqPrice, quantity: reqQuantity } = reqItem;
+      // 2. Revalidate then reserve atomically
+      for (const item of cart.items) {
+        // Never trust the price or quantity the client sent - re-read from database
+        const variant = await Variant.findOne({ sku: item.variantSku }).session(session);
+        if (!variant) {
+          throw new AppError(`Variant not found for SKU: ${item.variantSku}`, 404);
+        }
 
-        // Find matching cart item
-        const cartItem = cart.items.find(
-          (item) => item.variant._id.toString() === variantId
+        // Atomic reservation: check and mutation are one operation via recordStockMovement
+        const { variant: updated } = await recordStockMovement(
+          variant._id,
+          -item.quantity,
+          STOCK_MOVEMENT_REASON.SALE,
+          userId,
+          session
         );
-
-        if (!cartItem) {
-          throw new Error(`Item ${variantId} not found in cart`);
-        }
-
-        if (reqQuantity > cartItem.quantity) {
-          throw new Error(`Requested quantity for ${variantId} exceeds cart quantity`);
-        }
-
-        const variant = cartItem.variant;
-        const product = variant.product;
-
-        // Verify price mismatch
-        if (variant.price !== reqPrice) {
-          throw new Error(`Price mismatch for variant ${variant.sku || variantId}`);
-        }
-
-        // Perform atomic stock reservation
-        const updatedVariant = await Variant.findOneAndUpdate(
-          {
-            _id: variantId,
-            in_stock: true,
-            stockQuantity: { $gte: reqQuantity },
-          },
-          { $inc: { stockQuantity: -reqQuantity } },
-          { new: true, session }
-        );
-
-        if (!updatedVariant) {
-          throw new Error(`Insufficient stock for variant ${variant.sku || variantId}`);
-        }
 
         // Build order item snapshot
-        const subtotal = reqQuantity * variant.price;
+        const product = await Product.findById(item.productId).session(session);
+        if (!product) {
+          throw new AppError(`Product not found for ID: ${item.productId}`, 404);
+        }
+
+        const subtotal = item.quantity * variant.price;
         orderItems.push({
-          variant: variant._id,
-          sku: variant.sku,
-          name: product.name,
-          attributes: variant.attributes,
-          quantity: reqQuantity,
-          price: variant.price,
-          subtotal,
+          productId: item.productId,
+          variantSku: item.variantSku,
+          nameSnapshot: `${product.name} (${variant.name || variant.sku})`,
+          priceSnapshot: variant.price,
+          quantity: item.quantity,
         });
 
         orderSubtotal += subtotal;
       }
 
-      // c. Create Order document
-      const tax = 0; // Default as per instructions
-      const shippingCost = 0; // Default as per instructions
+      // 3. Create Order document
+      const tax = 0;
+      const shippingCost = 0;
       const total = orderSubtotal + tax + shippingCost;
+
+      // Validate Pay-on-pickup eligibility
+      if (paymentMethod === 'pay_on_pickup') {
+        const eligible = isPayOnPickupEligible({ total, shippingAddress });
+        if (!eligible) {
+          throw new AppError("Order not eligible for pay-on-pickup based on location or total amount", 400);
+        }
+      }
 
       const order = await Order.create(
         [
           {
-            user: userId,
+            userId,
             items: orderItems,
             shippingAddress,
             subtotal: orderSubtotal,
@@ -101,6 +88,7 @@ export const createCheckout = catchAsync(async (req, res) => {
             total,
             paymentMethod,
             paymentStatus: "pending",
+            status: ORDER_STATUS.PENDING_PAYMENT,
             orderStatus: "processing",
           },
         ],
@@ -109,21 +97,15 @@ export const createCheckout = catchAsync(async (req, res) => {
 
       createdOrder = order[0];
 
-      // d. Clear the cart
-      await Cart.deleteOne({ user: userId }, { session });
+      // 4. Clear the cart
+      await Cart.deleteOne({ userId }, { session });
     });
 
-    // e. Return created order
     res.status(201).json({
       success: true,
       data: createdOrder,
     });
-  } catch (error) {
-    // Error is already caught by withTransaction and re-thrown
-    // but we need to handle it or let catchAsync handle it.
-    // withTransaction aborts automatically on error.
-    throw error;
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 });

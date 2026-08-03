@@ -66,12 +66,22 @@ export const listProducts = catchAsync(async (req, res) => {
   const productIds = products.map((p) => p._id);
   const allVariants = await Variant.find({ product: { $in: productIds } });
 
-  const data = products.map((product) => {
-    const variants = allVariants
-      .filter((v) => v.product.toString() === product._id.toString())
-      .map((v) => v.toPublicObject());
-    return { ...product, variants };
-  });
+  console.log(`Found ${allVariants.length} variants for products ${productIds}`);
+
+  const variantsByProduct = allVariants.reduce((acc, v) => {
+    const productId = v.product?.toString();
+    if (!productId) {
+      console.warn(`Orphaned variant found: ${v._id}`);
+      return acc;
+    }
+    (acc[productId] ??= []).push(v.toPublicObject());
+    return acc;
+  }, {});
+
+  const data = products.map((product) => ({
+    ...product,
+    variants: variantsByProduct[product._id.toString()] ?? [],
+  }));
 
   const total = await Product.countDocuments({ status: "active" });
 
