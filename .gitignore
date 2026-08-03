@@ -1,3 +1,4 @@
 node_modules
 .env
 continue
+server.log
