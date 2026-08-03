@@ -14,6 +14,7 @@ import {
   checkEligiblePickupSchema,
   getOrdersQueueQuerySchema
 } from "../utils/validators/orderValidators.js";
+import { USER_ROLES } from "../utils/constants.js";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -76,7 +77,7 @@ router.get("/eligible-pickup", authenticate, validate(checkEligiblePickupSchema,
  *       200:
  *         description: Order verified successfully
  */
-router.patch("/:id/verify-bank-transfer", authenticate, authorize("product_admin", "super_admin"), verifyBankTransfer);
+router.patch("/:id/verify-bank-transfer", authenticate, authorize(USER_ROLES.PRODUCT_ADMIN, USER_ROLES.SUPER_ADMIN), verifyBankTransfer);
 
 /**
  * @swagger
@@ -110,18 +111,18 @@ router.get(
   "/queue",
   authenticate,
   authorize(
-    "store_operator",
-    "technician",
-    "qc_officer",
-    "sales_advisor",
-    "inventory_officer",
-    "support_officer",
-    "finance_officer",
-    "merchandiser",
-    "ops_manager",
-    "product_admin",
-    "tech_admin",
-    "super_admin"
+    USER_ROLES.STORE_OPERATOR,
+    USER_ROLES.TECHNICIAN,
+    USER_ROLES.QC_OFFICER,
+    USER_ROLES.SALES_ADVISOR,
+    USER_ROLES.INVENTORY_OFFICER,
+    USER_ROLES.SUPPORT_OFFICER,
+    USER_ROLES.FINANCE_OFFICER,
+    USER_ROLES.MERCHANDISER,
+    USER_ROLES.OPS_MANAGER,
+    USER_ROLES.PRODUCT_ADMIN,
+    USER_ROLES.TECH_ADMIN,
+    USER_ROLES.SUPER_ADMIN
   ),
   validate(getOrdersQueueQuerySchema, "query"),
   getOrderQueue
