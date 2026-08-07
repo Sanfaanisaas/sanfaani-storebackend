@@ -8,17 +8,20 @@ const envSchema = z.object({
   MONGO_URI: z.string().url(),
   JWT_SECRET: z.string().min(10),
   JWT_REFRESH_SECRET: z.string().min(10),
+  PAYSTACK_MODE: z.enum(["test", "live"]).default("test"),
   PAYSTACK_SECRET_KEY: z.string().startsWith("sk_"),
   PAYSTACK_CALLBACK_URL: z.string().url(),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   SENTRY_DSN: z.string().url().optional(),
 }).refine((data) => {
-  if (data.NODE_ENV === "production") {
-    return data.PAYSTACK_SECRET_KEY.startsWith("sk_live_");
-  }
-  return data.PAYSTACK_SECRET_KEY.startsWith("sk_test_");
+  const expectedPrefix =
+    data.PAYSTACK_MODE === "live"
+      ? "sk_live_"
+      : "sk_test_";
+
+  return data.PAYSTACK_SECRET_KEY.startsWith(expectedPrefix);
 }, {
-  message: "PAYSTACK_SECRET_KEY mode must match NODE_ENV (sk_live_ for production, sk_test_ otherwise)",
+  message: "PAYSTACK_SECRET_KEY must match PAYSTACK_MODE",
   path: ["PAYSTACK_SECRET_KEY"],
 });
 
@@ -34,6 +37,7 @@ export const env = {
   mongoUri: parsed.data.MONGO_URI,
   jwtSecret: parsed.data.JWT_SECRET,
   jwtRefreshSecret: parsed.data.JWT_REFRESH_SECRET,
+  paystackMode: parsed.data.PAYSTACK_MODE,
   paystackSecretKey: parsed.data.PAYSTACK_SECRET_KEY,
   paystackCallbackUrl: parsed.data.PAYSTACK_CALLBACK_URL,
   nodeEnv: parsed.data.NODE_ENV,
