@@ -1,0 +1,275 @@
+
+> sanfaani-storeapi@1.0.0 test:catalogue
+> node --test src/scripts/test-catalogue-contract.js
+
+◇ injected env (7) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+ValidationError: options.validate.defaultKeys is not recognized. Supported validate options are: ip, trustProxy, xForwardedForHeader, forwardedHeader, positiveHits, unsharedStore, singleCount, limit, draftPolliHeaders, onLimitReached, headersDraftVersion, headersResetTime, knownOptions, validationsConfig, creationStack, ipv6Subnet, ipv6SubnetOrKeyGenerator, keyGeneratorIpFallback, windowMs, default. See https://express-rate-limit.github.io/ERR_ERL_UNKNOWN_VALIDATION/ for more information.
+    at Object.validationsConfig (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/node_modules/.pnpm/express-rate-limit@8.6.1_express@5.2.1_supports-color@5.5.0__supports-color@5.5.0/node_modules/express-rate-limit/dist/index.mjs:568:15)
+    at wrappedValidations.<computed> [as validationsConfig] (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/node_modules/.pnpm/express-rate-limit@8.6.1_express@5.2.1_supports-color@5.5.0__supports-color@5.5.0/node_modules/express-rate-limit/dist/index.mjs:677:22)
+    at parseOptions (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/node_modules/.pnpm/express-rate-limit@8.6.1_express@5.2.1_supports-color@5.5.0__supports-color@5.5.0/node_modules/express-rate-limit/dist/index.mjs:744:16)
+    at rateLimit (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/node_modules/.pnpm/express-rate-limit@8.6.1_express@5.2.1_supports-color@5.5.0__supports-color@5.5.0/node_modules/express-rate-limit/dist/index.mjs:836:18)
+    at file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/src/middleware/rateLimiter.js:3:28
+    at ModuleJob.run (node:internal/modules/esm/module_job:430:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:661:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  code: 'ERR_ERL_UNKNOWN_VALIDATION',
+  help: 'https://express-rate-limit.github.io/ERR_ERL_UNKNOWN_VALIDATION/'
+}
+ValidationError: Custom keyGenerator appears to use request IP without calling the ipKeyGenerator helper function for IPv6 addresses. This could allow IPv6 users to bypass limits. See https://express-rate-limit.github.io/ERR_ERL_KEY_GEN_IPV6/ for more information.
+    at Object.keyGeneratorIpFallback (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/node_modules/.pnpm/express-rate-limit@8.6.1_express@5.2.1_supports-color@5.5.0__supports-color@5.5.0/node_modules/express-rate-limit/dist/index.mjs:625:13)
+    at wrappedValidations.<computed> [as keyGeneratorIpFallback] (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/node_modules/.pnpm/express-rate-limit@8.6.1_express@5.2.1_supports-color@5.5.0__supports-color@5.5.0/node_modules/express-rate-limit/dist/index.mjs:677:22)
+    at parseOptions (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/node_modules/.pnpm/express-rate-limit@8.6.1_express@5.2.1_supports-color@5.5.0__supports-color@5.5.0/node_modules/express-rate-limit/dist/index.mjs:754:16)
+    at rateLimit (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/node_modules/.pnpm/express-rate-limit@8.6.1_express@5.2.1_supports-color@5.5.0__supports-color@5.5.0/node_modules/express-rate-limit/dist/index.mjs:836:18)
+    at file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/src/middleware/rateLimiter.js:3:28
+    at ModuleJob.run (node:internal/modules/esm/module_job:430:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:661:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  code: 'ERR_ERL_KEY_GEN_IPV6',
+  help: 'https://express-rate-limit.github.io/ERR_ERL_KEY_GEN_IPV6/'
+}
+ValidationError: options.validate.defaultKeys is not recognized. Supported validate options are: ip, trustProxy, xForwardedForHeader, forwardedHeader, positiveHits, unsharedStore, singleCount, limit, draftPolliHeaders, onLimitReached, headersDraftVersion, headersResetTime, knownOptions, validationsConfig, creationStack, ipv6Subnet, ipv6SubnetOrKeyGenerator, keyGeneratorIpFallback, windowMs, default. See https://express-rate-limit.github.io/ERR_ERL_UNKNOWN_VALIDATION/ for more information.
+    at Object.validationsConfig (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/node_modules/.pnpm/express-rate-limit@8.6.1_express@5.2.1_supports-color@5.5.0__supports-color@5.5.0/node_modules/express-rate-limit/dist/index.mjs:568:15)
+    at wrappedValidations.<computed> [as validationsConfig] (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/node_modules/.pnpm/express-rate-limit@8.6.1_express@5.2.1_supports-color@5.5.0__supports-color@5.5.0/node_modules/express-rate-limit/dist/index.mjs:677:22)
+    at parseOptions (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/node_modules/.pnpm/express-rate-limit@8.6.1_express@5.2.1_supports-color@5.5.0__supports-color@5.5.0/node_modules/express-rate-limit/dist/index.mjs:744:16)
+    at rateLimit (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/node_modules/.pnpm/express-rate-limit@8.6.1_express@5.2.1_supports-color@5.5.0__supports-color@5.5.0/node_modules/express-rate-limit/dist/index.mjs:836:18)
+    at file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/src/middleware/rateLimiter.js:23:31
+    at ModuleJob.run (node:internal/modules/esm/module_job:430:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:661:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  code: 'ERR_ERL_UNKNOWN_VALIDATION',
+  help: 'https://express-rate-limit.github.io/ERR_ERL_UNKNOWN_VALIDATION/'
+}
+ValidationError: Custom keyGenerator appears to use request IP without calling the ipKeyGenerator helper function for IPv6 addresses. This could allow IPv6 users to bypass limits. See https://express-rate-limit.github.io/ERR_ERL_KEY_GEN_IPV6/ for more information.
+    at Object.keyGeneratorIpFallback (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/node_modules/.pnpm/express-rate-limit@8.6.1_express@5.2.1_supports-color@5.5.0__supports-color@5.5.0/node_modules/express-rate-limit/dist/index.mjs:625:13)
+    at wrappedValidations.<computed> [as keyGeneratorIpFallback] (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/node_modules/.pnpm/express-rate-limit@8.6.1_express@5.2.1_supports-color@5.5.0__supports-color@5.5.0/node_modules/express-rate-limit/dist/index.mjs:677:22)
+    at parseOptions (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/node_modules/.pnpm/express-rate-limit@8.6.1_express@5.2.1_supports-color@5.5.0__supports-color@5.5.0/node_modules/express-rate-limit/dist/index.mjs:754:16)
+    at rateLimit (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/node_modules/.pnpm/express-rate-limit@8.6.1_express@5.2.1_supports-color@5.5.0__supports-color@5.5.0/node_modules/express-rate-limit/dist/index.mjs:836:18)
+    at file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/src/middleware/rateLimiter.js:23:31
+    at ModuleJob.run (node:internal/modules/esm/module_job:430:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:661:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  code: 'ERR_ERL_KEY_GEN_IPV6',
+  help: 'https://express-rate-limit.github.io/ERR_ERL_KEY_GEN_IPV6/'
+}
+◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+[0mPOST /api/products [32m201[0m 1568.610 ms - 335[0m
+▶ Catalogue Contract - 14 Required Scenarios
+  ✔ 1. Draft creation succeeds (1726.526983ms)
+[0mPOST /api/products [33m422[0m 7.695 ms - 165[0m
+  ✔ 2. Direct incomplete publication returns structured 422 (63.827145ms)
+[0mPOST /api/products [32m201[0m 369.732 ms - 370[0m
+[0mPOST /api/products/variants [31m500[0m 260.422 ms - 1652[0m
+  ✖ 3. Complete draft, variant creation and publication succeed (705.145015ms)
+[0mGET /api/products [32m200[0m 488.360 ms - 94[0m
+[0mGET /api/products/soon-active [33m404[0m 259.293 ms - 61[0m
+  ✖ 4. List and detail use the same public contract (871.57316ms)
+[0mPOST /api/products [32m201[0m 162.920 ms - 323[0m
+[0mGET /api/products [32m200[0m 695.707 ms - 94[0m
+[0mGET /api/products/archived-p [33m404[0m 196.795 ms - 61[0m
+  ✔ 5. Draft and archived products remain private (1112.69092ms)
+  ✖ 6. Procurement fields never appear in serialized API JSON (313.510661ms)
+[0mGET /api/products/soon-active [33m404[0m 269.391 ms - 61[0m
+  ✖ 7. Sourcing variants report sourcing (301.369689ms)
+[0mPOST /api/checkout [33m400[0m 21.283 ms - 229[0m
+  ✔ 8. Sourcing variants cannot pass cart, checkout or stock reservation (890.514762ms)
+  ✖ 9. Product/variant ownership mismatch is rejected (426.296008ms)
+[0mPOST /api/products [33m409[0m 222.945 ms - 2219[0m
+[0mPOST /api/products/variants [31m500[0m 189.081 ms - 1652[0m
+  ✖ 10. Duplicate slug and SKU return controlled responses (635.33591ms)
+--- DRY RUN MODE ---
+
+--- Phase 1: Product Repair ---
+
+--- Phase 2: Variant Repair ---
+
+--- Phase 3: Publication Integrity ---
+
+--- Migration Summary ---
+Scanned:    5
+Changed:    1
+Skipped:    4
+Invalid:    0
+Unresolved: 0
+  ✔ 11. Migration dry-run performs zero writes (1206.475921ms)
+--- APPLY MODE ---
+
+--- Phase 1: Product Repair ---
+
+--- Phase 2: Variant Repair ---
+
+--- Phase 3: Publication Integrity ---
+Product Legacy Product (6a79eaf47f1cbb4004d1e439) is ACTIVE but fails publication requirements. Reverting to DRAFT.
+
+--- Migration Summary ---
+Scanned:    1
+Changed:    2
+Skipped:    0
+Invalid:    0
+Unresolved: 0
+--- APPLY MODE ---
+
+--- Phase 1: Product Repair ---
+
+--- Phase 2: Variant Repair ---
+
+--- Phase 3: Publication Integrity ---
+Product Legacy Product (6a79eaf47f1cbb4004d1e439) is ACTIVE but fails publication requirements. Reverting to DRAFT.
+
+--- Migration Summary ---
+Scanned:    2
+Changed:    4
+Skipped:    0
+Invalid:    0
+Unresolved: 0
+  ✖ 12. Apply is deterministic and a second apply changes zero records (3070.743748ms)
+--- APPLY MODE ---
+
+--- Phase 1: Product Repair ---
+
+--- Phase 2: Variant Repair ---
+
+--- Phase 3: Publication Integrity ---
+Product Legacy Product (6a79eaf47f1cbb4004d1e439) is ACTIVE but fails publication requirements. Reverting to DRAFT.
+
+--- Migration Summary ---
+Scanned:    3
+Changed:    3
+Skipped:    1
+Invalid:    0
+Unresolved: 0
+  ✔ 13. Unambiguous legacy ownership is repaired (2248.617463ms)
+--- APPLY MODE ---
+
+--- Phase 1: Product Repair ---
+
+--- Phase 2: Variant Repair ---
+Unresolved: Orphaned Variant ORPHAN (6a79eaf97f1cbb4004d1e43c)
+
+--- Phase 3: Publication Integrity ---
+Product Legacy Product (6a79eaf47f1cbb4004d1e439) is ACTIVE but fails publication requirements. Reverting to DRAFT.
+
+--- Migration Summary ---
+Scanned:    4
+Changed:    2
+Skipped:    2
+Invalid:    0
+Unresolved: 1
+  ✔ 14. Duplicate ownership and orphans are reported without deletion (1738.510455ms)
+✖ Catalogue Contract - 14 Required Scenarios (17318.734233ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 7
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 27867.543702
+
+✖ failing tests:
+
+test at src/scripts/test-catalogue-contract.js:68:11
+✖ 3. Complete draft, variant creation and publication succeed (705.145015ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  500 !== 201
+  
+      at TestContext.<anonymous> (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/src/scripts/test-catalogue-contract.js:100:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async TestContext.<anonymous> (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/src/scripts/test-catalogue-contract.js:68:3)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 500,
+    expected: 201,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at src/scripts/test-catalogue-contract.js:112:11
+✖ 4. List and detail use the same public contract (871.57316ms)
+  TypeError: Cannot read properties of undefined (reading 'name')
+      at TestContext.<anonymous> (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/src/scripts/test-catalogue-contract.js:120:36)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async TestContext.<anonymous> (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/src/scripts/test-catalogue-contract.js:112:3)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+
+test at src/scripts/test-catalogue-contract.js:151:11
+✖ 6. Procurement fields never appear in serialized API JSON (313.510661ms)
+  TypeError: Cannot set properties of null (setting 'sourcing')
+      at TestContext.<anonymous> (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/src/scripts/test-catalogue-contract.js:156:22)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async TestContext.<anonymous> (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/src/scripts/test-catalogue-contract.js:151:3)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+
+test at src/scripts/test-catalogue-contract.js:167:11
+✖ 7. Sourcing variants report sourcing (301.369689ms)
+  TypeError: Cannot read properties of undefined (reading 'variants')
+      at TestContext.<anonymous> (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/src/scripts/test-catalogue-contract.js:170:39)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async TestContext.<anonymous> (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/src/scripts/test-catalogue-contract.js:167:3)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+
+test at src/scripts/test-catalogue-contract.js:193:11
+✖ 9. Product/variant ownership mismatch is rejected (426.296008ms)
+  AssertionError [ERR_ASSERTION]: Variant should exist
+      at TestContext.<anonymous> (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/src/scripts/test-catalogue-contract.js:196:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async TestContext.<anonymous> (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/src/scripts/test-catalogue-contract.js:193:3)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at src/scripts/test-catalogue-contract.js:207:11
+✖ 10. Duplicate slug and SKU return controlled responses (635.33591ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  500 !== 409
+  
+      at TestContext.<anonymous> (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/src/scripts/test-catalogue-contract.js:235:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async TestContext.<anonymous> (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/src/scripts/test-catalogue-contract.js:207:3)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 500,
+    expected: 409,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at src/scripts/test-catalogue-contract.js:258:11
+✖ 12. Apply is deterministic and a second apply changes zero records (3070.743748ms)
+  AssertionError [ERR_ASSERTION]: Second run should have zero changes
+  
+  4 !== 0
+  
+      at TestContext.<anonymous> (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/src/scripts/test-catalogue-contract.js:280:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async TestContext.<anonymous> (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/src/scripts/test-catalogue-contract.js:258:3)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 4,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
