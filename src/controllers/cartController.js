@@ -3,6 +3,7 @@ import Variant from "../models/Variant.js";
 import Product from "../models/Product.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import { PRODUCT_STATUS } from "../utils/constants.js";
+import { assertLocalInventory } from "../services/inventoryService.js";
 
 /**
  * Format cart for response
@@ -57,18 +58,12 @@ export const addItem = catchAsync(async (req, res) => {
     return res.status(400).json({ success: false, message: "Product and variant mismatch" });
   }
 
-  if (variant.sourcing) {
-    return res.status(400).json({ success: false, message: "Sourcing-only variants cannot be purchased directly" });
-  }
-
-  if (variant.inStock === 0) {
-    return res.status(400).json({ success: false, message: "Variant is out of stock" });
-  }
-
-  if (quantity > (variant.inStock || 0)) {
-    return res.status(400).json({
+  try {
+    assertLocalInventory(variant, quantity);
+  } catch (error) {
+    return res.status(error.statusCode || 400).json({
       success: false,
-      message: `Requested quantity exceeds available stock (${variant.inStock})`,
+      message: error.message,
     });
   }
 
