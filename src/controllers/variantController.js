@@ -23,10 +23,9 @@ export const createVariant = catchAsync(async (req, res) => {
 });
 
 export const updateVariant = catchAsync(async (req, res) => {
-  const variant = await Variant.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-    runValidators: true,
-  });
+  const { product: productId } = req.body;
+  
+  let variant = await Variant.findById(req.params.id);
 
   if (!variant) {
     return res.status(404).json({
@@ -35,6 +34,18 @@ export const updateVariant = catchAsync(async (req, res) => {
       errors: null,
     });
   }
+
+  // Prevent ownership transfer
+  if (productId && productId.toString() !== variant.product.toString()) {
+    return res.status(400).json({
+      success: false,
+      message: "Variant ownership cannot be moved",
+    });
+  }
+
+  // Update variant
+  Object.assign(variant, req.body);
+  await variant.save();
 
   res.status(200).json({
     success: true,

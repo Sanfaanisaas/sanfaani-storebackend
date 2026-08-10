@@ -1,6 +1,16 @@
+import mongoose from "mongoose";
 import Product from "../models/Product.js";
 import Variant from "../models/Variant.js";
 import { catchAsync } from "../utils/catchAsync.js";
+import { PRODUCT_STATUS } from "../utils/constants.js";
+
+const getPublicProduct = (product, variants) => {
+  const { __v, ...rest } = product instanceof mongoose.Model ? product.toObject() : product;
+  return {
+    ...rest,
+    variants: variants.map(v => v instanceof mongoose.Model ? v.toPublicObject() : v)
+  };
+};
 
 export const createProduct = catchAsync(async (req, res) => {
   const product = await Product.create(req.body);
@@ -12,11 +22,9 @@ export const createProduct = catchAsync(async (req, res) => {
 });
 
 export const updateProduct = catchAsync(async (req, res) => {
-  const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-    runValidators: true,
-  });
+  const { status } = req.body;
 
+  let product = await Product.findById(req.params.id);
   if (!product) {
     return res.status(404).json({
       success: false,
@@ -24,6 +32,38 @@ export const updateProduct = catchAsync(async (req, res) => {
       errors: null,
     });
   }
+
+  // Enforce publication rules
+  if (status === PRODUCT_STATUS.ACTIVE && product.status !== PRODUCT_STATUS.ACTIVE) {
+    const variants = await Variant.find({ product: product._id });
+    const errors = [];
+
+    if (!product.name) errors.push("Name is required");
+    if (!product.slug) errors.push("Slug is required");
+    if (!product.description) errors.push("Description is required");
+    if (!product.category) errors.push("Category is required");
+    if (!product.brand) errors.push("Brand is required");
+    if (!product.images || product.images.length === 0) errors.push("At least one image is required");
+    if (variants.length === 0) errors.push("At least one variant is required");
+
+    for (const v of variants) {
+      if (!v.sku) errors.push(`Variant ${v._id}: SKU is required`);
+      if (v.price == null) errors.push(`Variant ${v._id}: Price is required`);
+      if (!v.condition) errors.push(`Variant ${v._id}: Condition is required`);
+      if (v.inStock == null && !v.sourcing) errors.push(`Variant ${v._id}: Valid inventory mode is required`);
+    }
+
+    if (errors.length > 0) {
+      return res.status(422).json({
+        success: false,
+        message: "Publication requirements not met",
+        errors
+      });
+    }
+  }
+
+  Object.assign(product, req.body);
+  await product.save();
 
   res.status(200).json({
     success: true,
@@ -57,7 +97,7 @@ export const listProducts = catchAsync(async (req, res) => {
   const limit = parseInt(req.query.limit, 10) || 10;
   const skip = (page - 1) * limit;
 
-  const products = await Product.find({ status: "active" })
+  const products = await Product.find({ status: PRODUCT_STATUS.ACTIVE })
     .skip(skip)
     .limit(limit)
     .sort("-createdAt")
@@ -66,24 +106,18 @@ export const listProducts = catchAsync(async (req, res) => {
   const productIds = products.map((p) => p._id);
   const allVariants = await Variant.find({ product: { $in: productIds } });
 
-  console.log(`Found ${allVariants.length} variants for products ${productIds}`);
-
   const variantsByProduct = allVariants.reduce((acc, v) => {
     const productId = v.product?.toString();
-    if (!productId) {
-      console.warn(`Orphaned variant found: ${v._id}`);
-      return acc;
-    }
-    (acc[productId] ??= []).push(v.toPublicObject());
+    if (!productId) return acc;
+    (acc[productId] ??= []).push(v);
     return acc;
   }, {});
 
-  const data = products.map((product) => ({
-    ...product,
-    variants: variantsByProduct[product._id.toString()] ?? [],
-  }));
+  const data = products.map((product) => 
+    getPublicProduct(product, variantsByProduct[product._id.toString()] ?? [])
+  );
 
-  const total = await Product.countDocuments({ status: "active" });
+  const total = await Product.countDocuments({ status: PRODUCT_STATUS.ACTIVE });
 
   res.status(200).json({
     success: true,
@@ -102,7 +136,7 @@ export const listProducts = catchAsync(async (req, res) => {
 export const getProductDetail = catchAsync(async (req, res) => {
   const product = await Product.findOne({
     slug: req.params.slug,
-    status: "active",
+    status: PRODUCT_STATUS.ACTIVE,
   }).lean();
 
   if (!product) {
@@ -114,10 +148,9 @@ export const getProductDetail = catchAsync(async (req, res) => {
   }
 
   const variants = await Variant.find({ product: product._id });
-  const publicVariants = variants.map((v) => v.toPublicObject());
 
   res.status(200).json({
     success: true,
-    data: { ...product, variants: publicVariants },
+    data: getPublicProduct(product, variants),
   });
 });

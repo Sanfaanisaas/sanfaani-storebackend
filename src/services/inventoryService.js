@@ -8,8 +8,17 @@ import { STOCK_MOVEMENT_REASON } from "../utils/constants.js";
  * Record a stock movement atomically
  */
 export const recordStockMovement = async (variantId, delta, reason, actorId, session) => {
+  const variant = await Variant.findById(variantId).session(session);
+  if (!variant) {
+    throw new AppError(`Variant not found for ID: ${variantId}`, 404);
+  }
+
+  if (variant.sourcing) {
+    throw new AppError(`Cannot record stock movement for sourcing-only variant: ${variantId}`, 400);
+  }
+
   // Guard against negative stock: handle separately if delta is negative
-  const query = { _id: variantId };
+  const query = { _id: variantId, sourcing: { $exists: false } };
   if (delta < 0) {
     query.inStock = { $gte: Math.abs(delta) };
   }

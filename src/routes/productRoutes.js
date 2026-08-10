@@ -77,7 +77,15 @@ router.get("/:slug", getProductDetail);
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/CreateProduct'
+ *             type: object
+ *             properties:
+ *               name: { type: string }
+ *               slug: { type: string }
+ *               description: { type: string }
+ *               category: { type: string }
+ *               brand: { type: string }
+ *               images: { type: array, items: { type: string } }
+ *               status: { type: string, enum: [draft, active, archived] }
  *     responses:
  *       201:
  *         description: Product created

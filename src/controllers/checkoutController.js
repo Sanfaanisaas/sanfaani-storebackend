@@ -7,7 +7,7 @@ import Product from "../models/Product.js";
 import Order from "../models/Order.js";
 import { isPayOnPickupEligible } from "../services/orderService.js";
 import { recordStockMovement } from "../services/inventoryService.js";
-import { ORDER_STATUS, STOCK_MOVEMENT_REASON } from "../utils/constants.js";
+import { ORDER_STATUS, STOCK_MOVEMENT_REASON, PRODUCT_STATUS } from "../utils/constants.js";
 
 export const createCheckout = catchAsync(async (req, res) => {
   const userId = req.user.id;
