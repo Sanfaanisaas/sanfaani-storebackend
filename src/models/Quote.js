@@ -28,7 +28,7 @@ const QuoteSchema = new Schema({
   status: {
     type: String,
     enum: Object.values(QUOTE_STATUS),
-    default: QUOTE_STATUS.PENDING,
+    default: QUOTE_STATUS.DRAFT,
   },
   createdBy: {
     type: Schema.Types.ObjectId,

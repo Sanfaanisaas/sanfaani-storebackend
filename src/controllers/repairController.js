@@ -7,7 +7,7 @@ export const createRepair = catchAsync(async (req, res) => {
   const { device, issueDescription, privacyAcknowledged } = req.body;
   
   const repair = await Repair.create({
-    customer: req.user._id,
+    customer: req.user.id,
     device,
     issueDescription,
     privacyAcknowledged
