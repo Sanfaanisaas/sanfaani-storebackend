@@ -22,6 +22,7 @@ const formatCartResponse = async (cart) => {
       },
       variantSku: item.variantSku,
       price: variant?.price,
+      priceAtAdd: item.priceAtAdd,
       quantity: item.quantity,
       inStock: variant?.inStock,
     });
