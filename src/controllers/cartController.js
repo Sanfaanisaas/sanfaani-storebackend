@@ -62,9 +62,12 @@ export const addItem = catchAsync(async (req, res) => {
   try {
     assertLocalInventory(variant, quantity);
   } catch (error) {
+    const message = error.message.includes("sourcing-only") 
+      ? `Variant ${variantSku} is sourcing-only and cannot be added to cart`
+      : error.message;
     return res.status(error.statusCode || 400).json({
       success: false,
-      message: error.message,
+      message,
     });
   }
 
@@ -80,8 +83,14 @@ export const addItem = catchAsync(async (req, res) => {
 
   if (existingItemIndex > -1) {
     cart.items[existingItemIndex].quantity = quantity;
+    cart.items[existingItemIndex].priceAtAdd = variant.price;
   } else {
-    cart.items.push({ productId, variantSku, quantity });
+    cart.items.push({ 
+      productId, 
+      variantSku, 
+      quantity, 
+      priceAtAdd: variant.price 
+    });
   }
 
   await cart.save();

@@ -50,10 +50,17 @@ export const createCheckout = catchAsync(async (req, res) => {
         }
 
         if (!variant.product || variant.product.toString() !== product._id.toString()) {
-          throw new AppError(`Integrity error: Variant ${variant.sku} does not belong to product ${product.name}`, 400);
+          throw new AppError(`Integrity error: Product and variant mismatch for SKU ${variant.sku}`, 400);
         }
 
-        assertLocalInventory(variant, item.quantity);
+        try {
+          assertLocalInventory(variant, item.quantity);
+        } catch (error) {
+          if (error.message.includes("sourcing-only")) {
+            throw new AppError(`Variant ${variant.sku} is sourcing-only and cannot be checked out`, 400);
+          }
+          throw error;
+        }
         // --- PROTECTIONS END ---
 
         // Atomic reservation: check and mutation are one operation via recordStockMovement

@@ -330,6 +330,7 @@ test("8. Sourcing variants cannot pass cart, checkout or stock reservation", asy
       productId: aggregate.productId,
       variantSku: aggregate.sku,
       quantity: 1,
+      priceAtAdd: 70000,
     }],
   });
   const checkoutResponse = await request(app)
@@ -378,6 +379,7 @@ test("9. Product/variant ownership mismatch is rejected", async () => {
       productId: second.productId,
       variantSku: first.sku,
       quantity: 1,
+      priceAtAdd: 10,
     }],
   });
   const checkoutResponse = await request(app)
