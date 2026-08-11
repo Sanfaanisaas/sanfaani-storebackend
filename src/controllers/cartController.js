@@ -79,9 +79,10 @@ export const addItem = catchAsync(async (req, res) => {
   );
 
   if (existingItemIndex > -1) {
-    cart.items[existingItemIndex].quantity = quantity;
+    cart.items[existingItemIndex].quantity += quantity;
+    cart.items[existingItemIndex].priceAtAdd = variant.price;
   } else {
-    cart.items.push({ productId, variantSku, quantity });
+    cart.items.push({ productId, variantSku, quantity, priceAtAdd: variant.price });
   }
 
   await cart.save();
