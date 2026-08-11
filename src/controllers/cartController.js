@@ -82,15 +82,10 @@ export const addItem = catchAsync(async (req, res) => {
   );
 
   if (existingItemIndex > -1) {
-    cart.items[existingItemIndex].quantity = quantity;
+    cart.items[existingItemIndex].quantity += quantity;
     cart.items[existingItemIndex].priceAtAdd = variant.price;
   } else {
-    cart.items.push({ 
-      productId, 
-      variantSku, 
-      quantity, 
-      priceAtAdd: variant.price 
-    });
+    cart.items.push({ productId, variantSku, quantity, priceAtAdd: variant.price });
   }
 
   await cart.save();
@@ -120,13 +115,19 @@ export const removeItem = catchAsync(async (req, res) => {
 });
 
 export const mergeCart = catchAsync(async (req, res) => {
-  const { guestId } = req.body;
+  const { guestItems } = req.body;
   const userId = req.user.id || req.user._id;
-
-  const cart = await Cart.mergeGuestCartIntoUser(guestId, userId);
-
-  res.status(200).json({
-    success: true,
-    data: await formatCartResponse(cart),
-  });
+  let cart = await Cart.findOne({ userId }) || new Cart({ userId, items: [] });
+  for (const gItem of guestItems) {
+    const variant = await Variant.findById(gItem.variantId);
+    if (!variant) continue;
+    const existing = cart.items.find((i) => i.variantSku === variant.sku);
+    if (existing) existing.quantity += gItem.quantity;
+    else cart.items.push({
+      productId: variant.product, variantSku: variant.sku,
+      quantity: gItem.quantity, priceAtAdd: variant.price,
+    });
+  }
+  await cart.save();
+  res.status(200).json({ success: true, data: await formatCartResponse(cart) });
 });

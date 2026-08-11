@@ -12,5 +12,8 @@ export const addItemSchema = z.object({
 });
 
 export const mergeSchema = z.object({
-  guestId: z.string().min(1, "Guest ID is required"),
+  guestItems: z.array(z.object({
+    variantId: objectIdSchema,
+    quantity: z.number().int().min(1),
+  })),
 });
