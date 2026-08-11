@@ -21,9 +21,9 @@ const sendDuplicateKey = (error, res) => {
 
 const sendErrorDev = (error, res) => {
   res.status(error.statusCode).json({
-    status: error.status,
-    error,
+    success: false,
     message: error.message,
+    errors: error.errors || null,
     stack: error.stack,
   });
 };
@@ -31,15 +31,17 @@ const sendErrorDev = (error, res) => {
 const sendErrorProd = (error, res) => {
   if (error.isOperational) {
     return res.status(error.statusCode).json({
-      status: error.status,
+      success: false,
       message: error.message,
+      errors: error.errors || null,
     });
   }
 
   console.error("ERROR 💥", error);
   return res.status(500).json({
-    status: "error",
+    success: false,
     message: "Something went very wrong!",
+    errors: null,
   });
 };
 

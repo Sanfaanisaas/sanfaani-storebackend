@@ -28,18 +28,58 @@ export const createCheckout = catchAsync(async (req, res) => {
         throw new AppError("Cart is empty", 400);
       }
 
+      // 2. Collect every stock and price conflict before reserving anything
+      const conflicts = [];
+
+      for (const item of cart.items) {
+        const variant = await Variant.findOne({ sku: item.variantSku }).session(session);
+
+        if (!variant) {
+          conflicts.push({
+            variantSku: item.variantSku,
+            type: "out_of_stock",
+            message: `Variant ${item.variantSku} no longer exists`,
+          });
+          continue;
+        }
+
+        if (variant.inStock < item.quantity) {
+          conflicts.push({
+            variantSku: item.variantSku,
+            type: "out_of_stock",
+            message:
+              variant.inStock === 0
+                ? `${item.variantSku} is out of stock`
+                : `Only ${variant.inStock} unit(s) of ${item.variantSku} available (you have ${item.quantity} in cart)`,
+            availableStock: variant.inStock,
+          });
+        }
+
+        if (item.priceAtAdd !== variant.price) {
+          const oldPriceLabel = Number.isFinite(item.priceAtAdd)
+            ? item.priceAtAdd.toLocaleString()
+            : "unknown";
+          conflicts.push({
+            variantSku: item.variantSku,
+            type: "price_changed",
+            message: `Price of ${item.variantSku} changed from ₦${oldPriceLabel} to ₦${variant.price.toLocaleString()}`,
+            oldPrice: item.priceAtAdd,
+            newPrice: variant.price,
+          });
+        }
+      }
+
+      if (conflicts.length > 0) {
+        throw new AppError("Some items in your cart have changed", 409, conflicts);
+      }
+
+      // 3. Reserve stock and build the order only when there are no conflicts
       const orderItems = [];
       let orderSubtotal = 0;
 
-      // 2. Revalidate then reserve atomically
       for (const item of cart.items) {
-        // Never trust the price or quantity the client sent - re-read from database
         const variant = await Variant.findOne({ sku: item.variantSku }).session(session);
-        if (!variant) {
-          throw new AppError(`Variant not found for SKU: ${item.variantSku}`, 404);
-        }
 
-        // --- PROTECTIONS START ---
         const product = await Product.findById(item.productId).session(session);
         if (!product) {
           throw new AppError(`Product not found for ID: ${item.productId}`, 404);
@@ -54,7 +94,6 @@ export const createCheckout = catchAsync(async (req, res) => {
         }
 
         assertLocalInventory(variant, item.quantity);
-        // --- PROTECTIONS END ---
 
         // Atomic reservation: check and mutation are one operation via recordStockMovement
         await recordStockMovement(
