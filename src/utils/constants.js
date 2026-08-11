@@ -110,3 +110,18 @@ export const STOCK_MOVEMENT_REASON = {
   RETURN: 'return',
   DAMAGE: 'damage',
 };
+
+export const PRODUCT_STATUS = Object.freeze({
+  DRAFT: 'draft',
+  ACTIVE: 'active',
+  ARCHIVED: 'archived',
+});
+
+export const WARRANTY_TERMS_VERSION = '2024-01-01';
+
+export const AVAILABILITY_STATUS = Object.freeze({
+  IN_STOCK: 'in_stock',
+  LOW_STOCK: 'low_stock',
+  OUT_OF_STOCK: 'out_of_stock',
+  SOURCING: 'sourcing',
+});

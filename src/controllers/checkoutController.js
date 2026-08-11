@@ -6,8 +6,11 @@ import Variant from "../models/Variant.js";
 import Product from "../models/Product.js";
 import Order from "../models/Order.js";
 import { isPayOnPickupEligible } from "../services/orderService.js";
-import { recordStockMovement } from "../services/inventoryService.js";
-import { ORDER_STATUS, STOCK_MOVEMENT_REASON } from "../utils/constants.js";
+import {
+  assertLocalInventory,
+  recordStockMovement,
+} from "../services/inventoryService.js";
+import { ORDER_STATUS, STOCK_MOVEMENT_REASON, PRODUCT_STATUS } from "../utils/constants.js";
 
 export const createCheckout = catchAsync(async (req, res) => {
   const userId = req.user.id;
@@ -36,8 +39,25 @@ export const createCheckout = catchAsync(async (req, res) => {
           throw new AppError(`Variant not found for SKU: ${item.variantSku}`, 404);
         }
 
+        // --- PROTECTIONS START ---
+        const product = await Product.findById(item.productId).session(session);
+        if (!product) {
+          throw new AppError(`Product not found for ID: ${item.productId}`, 404);
+        }
+
+        if (product.status !== PRODUCT_STATUS.ACTIVE) {
+          throw new AppError(`Product '${product.name}' is not currently available for purchase`, 400);
+        }
+
+        if (!variant.product || variant.product.toString() !== product._id.toString()) {
+          throw new AppError(`Integrity error: Variant ${variant.sku} does not belong to product ${product.name}`, 400);
+        }
+
+        assertLocalInventory(variant, item.quantity);
+        // --- PROTECTIONS END ---
+
         // Atomic reservation: check and mutation are one operation via recordStockMovement
-        const { variant: updated } = await recordStockMovement(
+        await recordStockMovement(
           variant._id,
           -item.quantity,
           STOCK_MOVEMENT_REASON.SALE,
@@ -45,17 +65,11 @@ export const createCheckout = catchAsync(async (req, res) => {
           session
         );
 
-        // Build order item snapshot
-        const product = await Product.findById(item.productId).session(session);
-        if (!product) {
-          throw new AppError(`Product not found for ID: ${item.productId}`, 404);
-        }
-
         const subtotal = item.quantity * variant.price;
         orderItems.push({
           productId: item.productId,
           variantSku: item.variantSku,
-          nameSnapshot: `${product.name} (${variant.name || variant.sku})`,
+          nameSnapshot: `${product.name} (${variant.sku})`,
           priceSnapshot: variant.price,
           quantity: item.quantity,
         });

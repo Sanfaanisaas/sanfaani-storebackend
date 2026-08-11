@@ -41,6 +41,148 @@ secret in `.env.example` or commit it to Git.
 
 Never commit `.env` or real credentials. The repository ignores `.env`; `.env.example` contains documentation-only placeholders and is safe to commit.
 
+## Catalogue contract (BE-01)
+
+### Lifecycle and publication
+
+- `draft` is private and may be incomplete while merchandising work continues.
+- `active` is public in both catalogue listing and detail responses.
+- `archived` is private and is the soft-delete state.
+
+Every candidate transition to `active` is checked as one aggregate. `POST
+/api/products` cannot create an active product directly because no owned variant
+can exist yet. `PATCH /api/products/:id` applies all proposed fields to a
+candidate before checking it.
+
+A publishable product requires a non-empty name, normalized unique lowercase
+slug, description, category, brand, at least one image, and at least one owned
+variant. Every owned variant requires a unique SKU, finite non-negative price,
+supported condition, exactly one inventory mode, an inspection summary,
+structured condition evidence, an explicit known-limitations value (use `None`
+when applicable), and versioned warranty terms.
+
+Example publishable variant fields:
+
+```json
+{
+  "product": "66b86b1c4a0e2f638a70d301",
+  "sku": "PHONE-BLK-128",
+  "attributes": { "colour": "Black", "storage": "128GB" },
+  "price": 125000,
+  "condition": "refurbished_grade_a",
+  "inspection": {
+    "summary": "All documented checks passed",
+    "inspectedAt": "2026-08-10T10:00:00.000Z"
+  },
+  "limitations": "None",
+  "conditionEvidence": [
+    { "url": "https://example.com/evidence/front.jpg", "alt": "Front condition" }
+  ],
+  "warranty": {
+    "version": "2024-01-01",
+    "terms": "Ninety-day limited repair warranty"
+  },
+  "inStock": 10
+}
+```
+
+The alternative sourcing mode is the internal object `sourcing: { supplier,
+leadTimeDays, costPrice }`. It is mutually exclusive with `inStock`. Legacy
+`warrantyTerms`, inspection text, or evidence strings are not promoted or
+invented by migration.
+
+Failed publication returns `422` with structured requirements:
+
+```json
+{
+  "success": false,
+  "message": "Publication requirements not met",
+  "errors": [
+    {
+      "code": "product.variants.required",
+      "path": "variants",
+      "message": "At least one owned variant is required"
+    }
+  ]
+}
+```
+
+### Public projections and availability
+
+`GET /api/products` and `GET /api/products/:slug` use the same allowlisted
+projection. Public products contain catalogue presentation fields plus public
+variants. They do not expose `status`, `__v`, `isActive`, legacy migration
+fields, or procurement data. Public variants contain `id`, `sku`, attributes,
+price, condition, inspection, limitations, condition evidence, warranty, and
+derived availability. They never contain `sourcing`, `supplier`, `costPrice`,
+exact `inStock`, `product`, or `__v`.
+
+- `in_stock`: finite local stock is greater than 5.
+- `low_stock`: finite local stock is from 1 through 5.
+- `out_of_stock`: local stock is zero, absent, negative, or invalid.
+- `sourcing`: a sourcing-mode variant, regardless of any corrupt legacy stock value.
+
+Sourcing variants cannot enter a cart, pass checkout, or receive local stock
+movements. Checkout repeats product status, ownership, inventory-mode, numeric
+stock, and quantity checks inside its transaction before creating an order.
+
+### Catalogue migration procedure
+
+The migration is dry-run by default and reports `scanned`, `changed`, `skipped`,
+`invalid`, and `unresolved` totals. It uses raw collection updates so incomplete
+legacy records can safely remain drafts. It does not fabricate brand, warranty,
+inspection, condition evidence, or limitations, and it never deletes unresolved
+records.
+
+1. Back up the target database before review or apply:
+
+   ```bash
+   mongodump --uri "$MONGO_URI" --out ./backup-before-be-01
+   ```
+
+2. Run and review the default dry-run:
+
+   ```bash
+   node scripts/migrate-catalogue.mjs
+   ```
+
+3. For an unreferenced variant that has a verified owner, create a reviewed map:
+
+   ```json
+   {
+     "reviewed": true,
+     "mappings": {
+       "66b86b1c4a0e2f638a70d302": "66b86b1c4a0e2f638a70d301"
+     }
+   }
+   ```
+
+   Re-run the dry-run with it:
+
+   ```bash
+   node scripts/migrate-catalogue.mjs --orphan-map ./reviewed-orphans.json
+   ```
+
+4. Only after the totals and mapping are approved, apply explicitly, then run
+   the identical apply command a second time; the second `changed` total must be
+   zero:
+
+   ```bash
+   node scripts/migrate-catalogue.mjs --apply --orphan-map ./reviewed-orphans.json
+   node scripts/migrate-catalogue.mjs --apply --orphan-map ./reviewed-orphans.json
+   ```
+
+Duplicate ownership, missing references, invalid mappings, and unmapped orphans
+remain unresolved for manual review. Do not guess an owner. To roll back an
+approved apply, stop application writes and restore the verified backup to the
+same target under the normal change-control procedure, for example:
+
+```bash
+mongorestore --uri "$MONGO_URI" --drop ./backup-before-be-01
+```
+
+**No production catalogue migration was performed as part of BE-01.**
+
 ## Run locally
 
 ```powershell

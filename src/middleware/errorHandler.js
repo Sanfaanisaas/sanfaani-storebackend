@@ -1,43 +1,56 @@
-import { env } from "../config/env.js";
 import * as Sentry from "@sentry/node";
+import { env } from "../config/env.js";
 
-const sendErrorDev = (err, res) => {
-  res.status(err.statusCode).json({
-    status: err.status,
-    error: err,
-    message: err.message,
-    stack: err.stack,
+const DUPLICATE_FIELDS = new Set(["slug", "sku"]);
+
+const duplicateField = (error) => {
+  const key = Object.keys(error.keyPattern ?? error.keyValue ?? {})[0];
+  return DUPLICATE_FIELDS.has(key) ? key : "field";
+};
+
+const isDuplicateKey = (error) => error?.code === 11000;
+
+const sendDuplicateKey = (error, res) => {
+  const field = duplicateField(error);
+  return res.status(409).json({
+    success: false,
+    message: "A catalogue value is already in use",
+    errors: [{ field, code: "duplicate", message: `${field} must be unique` }],
   });
 };
 
-const sendErrorProd = (err, res) => {
-  // Operational, trusted error: send message to client
-  if (err.isOperational) {
-    res.status(err.statusCode).json({
-      status: err.status,
-      message: err.message,
-    });
-  } else {
-    // Programming or other unknown error: don't leak error details
-    console.error("ERROR 💥", err);
-    res.status(500).json({
-      status: "error",
-      message: "Something went very wrong!",
-    });
-  }
+const sendErrorDev = (error, res) => {
+  res.status(error.statusCode).json({
+    status: error.status,
+    error,
+    message: error.message,
+    stack: error.stack,
+  });
 };
 
-export const errorHandler = (err, req, res, next) => {
-  err.statusCode = err.statusCode || 500;
-  err.status = err.status || "error";
-
-  if (env.sentryDsn) {
-    Sentry.captureException(err);
+const sendErrorProd = (error, res) => {
+  if (error.isOperational) {
+    return res.status(error.statusCode).json({
+      status: error.status,
+      message: error.message,
+    });
   }
 
-  if (env.nodeEnv === "development") {
-    sendErrorDev(err, res);
-  } else {
-    sendErrorProd(err, res);
-  }
+  console.error("ERROR 💥", error);
+  return res.status(500).json({
+    status: "error",
+    message: "Something went very wrong!",
+  });
+};
+
+export const errorHandler = (error, req, res, next) => {
+  if (isDuplicateKey(error)) return sendDuplicateKey(error, res);
+
+  error.statusCode = error.statusCode || 500;
+  error.status = error.status || "error";
+
+  if (env.sentryDsn) Sentry.captureException(error);
+
+  if (env.nodeEnv === "development") return sendErrorDev(error, res);
+  return sendErrorProd(error, res);
 };

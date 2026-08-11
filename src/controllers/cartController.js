@@ -2,6 +2,8 @@ import Cart from "../models/Cart.js";
 import Variant from "../models/Variant.js";
 import Product from "../models/Product.js";
 import { catchAsync } from "../utils/catchAsync.js";
+import { PRODUCT_STATUS } from "../utils/constants.js";
+import { assertLocalInventory } from "../services/inventoryService.js";
 
 /**
  * Format cart for response
@@ -42,19 +44,26 @@ export const addItem = catchAsync(async (req, res) => {
   const { productId, variantSku, quantity } = req.body;
   const userId = req.user.id || req.user._id;
 
+  const product = await Product.findById(productId);
+  if (!product || product.status !== PRODUCT_STATUS.ACTIVE) {
+    return res.status(404).json({ success: false, message: "Product not available" });
+  }
+
   const variant = await Variant.findOne({ sku: variantSku });
   if (!variant) {
     return res.status(404).json({ success: false, message: "Variant not found" });
   }
 
-  if (variant.inStock === 0) {
-    return res.status(400).json({ success: false, message: "Variant is out of stock" });
+  if (variant.product.toString() !== productId) {
+    return res.status(400).json({ success: false, message: "Product and variant mismatch" });
   }
 
-  if (quantity > (variant.inStock || 0)) {
-    return res.status(400).json({
+  try {
+    assertLocalInventory(variant, quantity);
+  } catch (error) {
+    return res.status(error.statusCode || 400).json({
       success: false,
-      message: `Requested quantity exceeds available stock (${variant.inStock})`,
+      message: error.message,
     });
   }
 
