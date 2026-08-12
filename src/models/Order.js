@@ -76,6 +76,15 @@ const orderSchema = new mongoose.Schema(
       enum: ["pending", "paid", "failed"],
       default: "pending",
     },
+    idempotencyKey: {
+      type: String,
+      trim: true,
+      maxlength: 128,
+    },
+    requestFingerprint: {
+      type: String,
+      match: /^[a-f0-9]{64}$/,
+    },
     paymentReference: {
       type: String,
     },
@@ -91,6 +100,15 @@ const orderSchema = new mongoose.Schema(
     },
   },
   { timestamps: true }
+);
+
+orderSchema.index(
+  { userId: 1, idempotencyKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { idempotencyKey: { $type: "string" } },
+    name: "unique_checkout_idempotency_per_user",
+  },
 );
 
 orderSchema.methods.toPublicOrder = function () {

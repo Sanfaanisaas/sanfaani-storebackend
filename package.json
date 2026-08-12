@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "test:catalogue": "node --test src/scripts/test-catalogue-contract.js"
+    "test:catalogue": "node --test src/scripts/test-catalogue-contract.js",
+    "test:cart-checkout": "node --test src/scripts/test-cart-checkout-contract.js"
   },
   "keywords": [],
   "author": "",

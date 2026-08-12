@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   getCart,
   addItem,
+  setItemQuantity,
   removeItem,
   mergeCart,
 } from "../controllers/cartController.js";
@@ -9,6 +10,7 @@ import { authenticate } from "../middleware/authenticate.js";
 import { validate } from "../middleware/validate.js";
 import {
   addItemSchema,
+  setItemQuantitySchema,
   mergeSchema,
 } from "../utils/validators/cartValidators.js";
 
@@ -59,6 +61,39 @@ router.get("/", getCart);
  *         description: Invalid input or out of stock
  */
 router.post("/items", validate(addItemSchema), addItem);
+
+/**
+ * @swagger
+ * /cart/items/{variantSku}:
+ *   patch:
+ *     summary: Set a cart line to an exact quantity
+ *     tags: [Cart]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: variantSku
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [quantity]
+ *             properties:
+ *               quantity:
+ *                 type: integer
+ *                 minimum: 1
+ *     responses:
+ *       200:
+ *         description: Exact quantity set and price snapshot refreshed
+ *       409:
+ *         description: Product lifecycle, ownership or stock conflict
+ */
+router.patch("/items/:variantSku", validate(setItemQuantitySchema), setItemQuantity);
 
 /**
  * @swagger

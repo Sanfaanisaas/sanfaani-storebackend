@@ -5,6 +5,7 @@ import morgan from "morgan";
 import cookieParser from "cookie-parser";
 import { env } from "./config/env.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import { normalizeErrorEnvelope } from "./middleware/errorEnvelope.js";
 import AppError from "./utils/AppError.js";
 
 import healthRoutes from "./routes/healthRoutes.js";
@@ -30,12 +31,15 @@ app.use(
   cors({
     origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",") : "http://localhost:3000",
     credentials: true,
+    exposedHeaders: ["Idempotency-Replayed"],
   })
 );
 
 if (env.nodeEnv === "development") {
   app.use(morgan("dev"));
 }
+
+app.use(normalizeErrorEnvelope);
 
 // Specific route that needs raw body MUST come before express.json()
 app.use("/api/payments/webhook", express.raw({ type: "application/json" }));
