@@ -7,7 +7,7 @@ export function authenticate(req, res, next) {
     return res.status(401).json({
       success: false,
       message: "Authentication required",
-      errors: null,
+      errors: [{ code: "authentication_required", message: "Provide a bearer access token" }],
     });
   }
 
@@ -21,7 +21,7 @@ export function authenticate(req, res, next) {
     return res.status(401).json({
       success: false,
       message: "Invalid or expired token",
-      errors: null,
+      errors: [{ code: "access_token_invalid", message: "Sign in again to continue" }],
     });
   }
 }
@@ -32,7 +32,7 @@ export function authorize(...allowedRoles) {
       return res.status(403).json({
         success: false,
         message: "You do not have permission to perform this action",
-        errors: null,
+        errors: [{ code: "forbidden", message: "Your account cannot perform this action" }],
       });
     }
     next();

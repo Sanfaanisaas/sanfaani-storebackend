@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
+    "test:auth-session": "node --test src/scripts/test-auth-session-lifecycle.js",
     "test:catalogue": "node --test src/scripts/test-catalogue-contract.js",
     "test:cart-checkout": "node --test src/scripts/test-cart-checkout-contract.js"
   },

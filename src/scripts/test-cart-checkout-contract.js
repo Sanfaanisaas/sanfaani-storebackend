@@ -433,6 +433,15 @@ test("15. Successful checkout creates one order, ledger and clears cart", async 
   assert.equal(await StockLedger.countDocuments(), 1);
   assert.equal(await Cart.countDocuments(), 0);
   assert.equal((await Variant.findById(aggregate.variant._id)).inStock, 1);
+
+  const ledgerEntry = await StockLedger.findOne();
+  const persistedDelta = ledgerEntry.delta;
+  ledgerEntry.delta = persistedDelta - 1;
+  await assert.rejects(
+    () => ledgerEntry.save(),
+    /StockLedger entries are append-only\. Updates are not allowed\./,
+  );
+  assert.equal((await StockLedger.findById(ledgerEntry._id)).delta, persistedDelta);
 });
 
 test("16. Sequential idempotent retry returns the same order without another decrement", async () => {
@@ -527,17 +536,33 @@ test("20. Injected post-reservation failure rolls back and leaves key reusable",
 });
 
 test("21. Catalogue regression remains green in its own isolated replica set", () => {
+  const childEnv = {
+    ...process.env,
+    TEST_MONGO_URI: "",
+  };
+  delete childEnv.NODE_TEST_CONTEXT;
+  delete childEnv.NODE_TEST_WORKER_ID;
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(childEnv, "NODE_TEST_CONTEXT"),
+    false,
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(childEnv, "NODE_TEST_WORKER_ID"),
+    false,
+  );
+
   const result = spawnSync(
     process.execPath,
-    ["--test", "src/scripts/test-catalogue-contract.js"],
+    ["--test", "--test-concurrency=1", "src/scripts/test-catalogue-contract.js"],
     {
       cwd: process.cwd(),
-      env: { ...process.env, TEST_MONGO_URI: "" },
+      env: childEnv,
       encoding: "utf8",
       timeout: 180000,
     },
   );
-  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-  assert.match(result.stdout, /pass 14/);
-  assert.match(result.stdout, /fail 0/);
+  const output = `${result.stdout || ""}\n${result.stderr || ""}`;
+  assert.equal(result.status, 0, output);
+  assert.match(output, /pass 14/);
+  assert.match(output, /fail 0/);
 });

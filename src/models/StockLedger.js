@@ -30,11 +30,12 @@ const StockLedgerSchema = new Schema({
 }, { timestamps: true });
 
 // Prevent updates or deletes
-StockLedgerSchema.pre('save', function(next) {
+StockLedgerSchema.pre("save", function () {
   if (!this.isNew) {
-    return next(new Error('StockLedger entries are append-only. Updates are not allowed.'));
+    throw new Error(
+      "StockLedger entries are append-only. Updates are not allowed.",
+    );
   }
-  next();
 });
 
 export default mongoose.model("StockLedger", StockLedgerSchema);

@@ -1,17 +1,12 @@
 import { Router } from "express";
 import {
-  register,
-  login,
-  refresh,
-  logout,
+  listSessions, login, logout, refresh, register, revokeAllSessions, revokeSession,
 } from "../controllers/authController.js";
 import { authenticate } from "../middleware/authenticate.js";
+import { protectCookieAuth } from "../middleware/csrfOrigin.js";
+import { authLimiter, refreshLimiter } from "../middleware/rateLimiter.js";
 import { validate } from "../middleware/validate.js";
-import { authLimiter } from "../middleware/rateLimiter.js";
-import {
-  registerSchema,
-  loginSchema,
-} from "../utils/validators/authValidators.js";
+import { loginSchema, registerSchema, sessionParamsSchema } from "../utils/validators/authValidators.js";
 
 const router = Router();
 
@@ -19,33 +14,11 @@ const router = Router();
  * @swagger
  * /auth/register:
  *   post:
- *     summary: Register a new customer account
+ *     summary: Register a customer account
  *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [name, email, password]
- *             properties:
- *               name:
- *                 type: string
- *                 example: Test User
- *               email:
- *                 type: string
- *                 example: test@example.com
- *               password:
- *                 type: string
- *                 example: password123
- *               phone:
- *                 type: string
- *                 example: "09010172138"
  *     responses:
- *       201:
- *         description: User created successfully
- *       409:
- *         description: Email already exists
+ *       201: { description: Account created }
+ *       409: { description: Email is already registered }
  */
 router.post("/register", authLimiter, validate(registerSchema), register);
 
@@ -53,54 +26,74 @@ router.post("/register", authLimiter, validate(registerSchema), register);
  * @swagger
  * /auth/login:
  *   post:
- *     summary: Log in and receive an access token
+ *     summary: Issue a 15-minute bearer access token and create a refresh-cookie session
  *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [email, password]
- *             properties:
- *               email:
- *                 type: string
- *                 example: test@example.com
- *               password:
- *                 type: string
- *                 example: password123
  *     responses:
- *       200:
- *         description: Login successful, returns access token and user profile
- *       401:
- *         description: Invalid credentials
+ *       200: { description: Login successful; refresh token is set only as an HttpOnly cookie }
+ *       401: { description: Invalid credentials }
  */
-router.post("/login", authLimiter, validate(loginSchema), login);
+router.post("/login", protectCookieAuth, authLimiter, validate(loginSchema), login);
 
 /**
  * @swagger
  * /auth/refresh:
  *   post:
- *     summary: Get a new access token using the refresh token cookie
+ *     summary: Rotate the refresh cookie and issue a new access token
+ *     description: Requires only the HttpOnly refresh cookie, not a bearer access token.
  *     tags: [Auth]
  *     responses:
- *       200:
- *         description: New access token issued
- *       401:
- *         description: Missing, invalid, or expired refresh token
+ *       200: { description: Refresh token rotated and access token issued }
+ *       401: { description: Missing, invalid, expired, revoked, or reused refresh token }
+ *       403: { description: Browser Origin or Referer is not trusted }
  */
-router.post("/refresh", authenticate, refresh);
+router.post("/refresh", protectCookieAuth, refreshLimiter, refresh);
 
 /**
  * @swagger
  * /auth/logout:
  *   post:
- *     summary: Log out and clear the refresh token cookie
+ *     summary: Idempotently revoke the cookie session and clear its cookie
  *     tags: [Auth]
  *     responses:
- *       200:
- *         description: Logged out successfully
+ *       200: { description: Logout complete, including when the cookie was absent or invalid }
  */
-router.post("/logout", authenticate, logout);
+router.post("/logout", protectCookieAuth, logout);
+
+/**
+ * @swagger
+ * /auth/sessions:
+ *   get:
+ *     summary: List safe account-session metadata
+ *     tags: [Auth]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Sessions belonging to the authenticated account }
+ *   delete:
+ *     summary: Revoke all sessions belonging to the authenticated account
+ *     tags: [Auth]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Every account session was revoked }
+ */
+router.get("/sessions", authenticate, listSessions);
+router.delete("/sessions", authenticate, revokeAllSessions);
+
+/**
+ * @swagger
+ * /auth/sessions/{sessionId}:
+ *   delete:
+ *     summary: Revoke one session belonging to the authenticated account
+ *     tags: [Auth]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200: { description: Session revoked }
+ *       404: { description: Session unavailable }
+ */
+router.delete("/sessions/:sessionId", authenticate, validate(sessionParamsSchema, "params"), revokeSession);
 
 export default router;

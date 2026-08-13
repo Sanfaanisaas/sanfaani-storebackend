@@ -321,8 +321,13 @@ test("8. Sourcing variants cannot pass cart, checkout or stock reservation", asy
       variantSku: aggregate.sku,
       quantity: 1,
     });
-  assert.equal(cartResponse.status, 400);
-  assert.match(cartResponse.body.message, /sourcing-only/);
+  assert.equal(cartResponse.status, 409);
+  assert.equal(cartResponse.body.success, false);
+  assert.equal(typeof cartResponse.body.message, "string");
+  assert.ok(Array.isArray(cartResponse.body.errors));
+  assert.ok(cartResponse.body.errors.some(
+    (error) => (error.type ?? error.code) === "sourcing_unavailable",
+  ));
 
   await Cart.create({
     userId: adminUser._id,
@@ -336,8 +341,15 @@ test("8. Sourcing variants cannot pass cart, checkout or stock reservation", asy
   const checkoutResponse = await request(app)
     .post("/api/checkout")
     .set(auth())
+    .set("Idempotency-Key", "catalogue-sourcing-conflict")
     .send(checkoutBody);
-  assert.equal(checkoutResponse.status, 400);
+  assert.equal(checkoutResponse.status, 409);
+  assert.equal(checkoutResponse.body.success, false);
+  assert.equal(typeof checkoutResponse.body.message, "string");
+  assert.ok(Array.isArray(checkoutResponse.body.errors));
+  assert.ok(checkoutResponse.body.errors.some(
+    (error) => (error.type ?? error.code) === "sourcing_unavailable",
+  ));
   assert.equal(await Order.countDocuments(), 0);
 
   const session = await mongoose.startSession();
@@ -370,8 +382,13 @@ test("9. Product/variant ownership mismatch is rejected", async () => {
       variantSku: first.sku,
       quantity: 1,
     });
-  assert.equal(cartResponse.status, 400);
-  assert.match(cartResponse.body.message, /mismatch/);
+  assert.equal(cartResponse.status, 409);
+  assert.equal(cartResponse.body.success, false);
+  assert.equal(typeof cartResponse.body.message, "string");
+  assert.ok(Array.isArray(cartResponse.body.errors));
+  assert.ok(cartResponse.body.errors.some(
+    (error) => (error.type ?? error.code) === "ownership_mismatch",
+  ));
 
   await Cart.create({
     userId: adminUser._id,
@@ -385,9 +402,17 @@ test("9. Product/variant ownership mismatch is rejected", async () => {
   const checkoutResponse = await request(app)
     .post("/api/checkout")
     .set(auth())
+    .set("Idempotency-Key", "catalogue-ownership-conflict")
     .send(checkoutBody);
-  assert.equal(checkoutResponse.status, 400);
+  assert.equal(checkoutResponse.status, 409);
+  assert.equal(checkoutResponse.body.success, false);
+  assert.equal(typeof checkoutResponse.body.message, "string");
+  assert.ok(Array.isArray(checkoutResponse.body.errors));
+  assert.ok(checkoutResponse.body.errors.some(
+    (error) => (error.type ?? error.code) === "ownership_mismatch",
+  ));
   assert.equal(await Order.countDocuments(), 0);
+  assert.equal(await StockLedger.countDocuments(), 0);
   assert.equal((await Variant.findById(first.variantId)).inStock, 10);
 });
 

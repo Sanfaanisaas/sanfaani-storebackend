@@ -22,6 +22,59 @@ The following variables are optional:
 - `PAYSTACK_MODE`: Paystack transaction mode, `test` by default or `live`
 - `PORT`: HTTP port; defaults to `5000`
 - `SENTRY_DSN`: Sentry project DSN for error monitoring
+- `CORS_ORIGIN`: comma-separated exact frontend origins allowed for credentialed
+  CORS and cookie-auth CSRF checks; defaults to `http://localhost:3000`
+
+## Authentication sessions (BE-03)
+
+Protected application routes continue to use a bearer access token with a
+15-minute lifetime. Login returns that access token in JSON and creates a
+database-backed browser/device session. The 30-day refresh token is never
+returned in JSON or stored raw: it is set only as the `refreshToken` HttpOnly
+cookie and the database stores a keyed SHA-256 digest.
+
+The cookie path is exactly `/api/auth`. Development uses `SameSite=Lax` without
+`Secure`; production uses `SameSite=None; Secure` so a configured Vercel origin
+can call a separately hosted API. The current frontend normally proxies browser
+requests through same-origin `/api`, which is also compatible. Frontends must
+send credentials (`credentials: "include"` or Axios `withCredentials: true`).
+Credentialed CORS never uses a wildcard. Browser calls to login, refresh and
+logout must carry an `Origin` or `Referer` matching an exact `CORS_ORIGIN` entry;
+non-browser clients that send neither are supported.
+
+`POST /api/auth/refresh` authenticates only the refresh cookie. It ignores an
+absent, expired or malformed bearer header. Every success atomically consumes
+the current refresh generation, creates one successor, replaces the cookie and
+returns a new access token. Reuse of a rotated or revoked generation revokes the
+whole session family, including its successor, and returns `401` with code
+`refresh_token_reuse_detected`.
+
+`POST /api/auth/logout` also requires no bearer token. It always clears the
+cookie and returns `200`; when a signed, recognized cookie is present (including
+an expired one), its server session is revoked. Repeated or malformed-cookie
+logout is intentionally idempotent.
+
+Account session endpoints use the normal bearer middleware:
+
+| Endpoint | Success | Behavior |
+| --- | --- | --- |
+| `GET /api/auth/sessions` | `200` | Lists only this account's sessions. |
+| `DELETE /api/auth/sessions/:sessionId` | `200` | Revokes one owned session; unavailable/cross-account IDs return non-enumerating `404`. |
+| `DELETE /api/auth/sessions` | `200` | Revokes all sessions for the account and clears the attached refresh cookie. |
+
+The safe session DTO contains only `id`, `createdAt`, `lastUsedAt`, `expiresAt`,
+`deviceLabel`, `current`, and `revoked`. It excludes token digests, JWT IDs,
+family IDs, raw IP values and internal versions. Session and refresh-generation
+documents declare TTL cleanup indexes, but every refresh checks revocation and
+expiry directly; TTL deletion is not an authorization mechanism.
+
+Authentication errors use `{ "success": false, "message": "...", "errors": [] }`
+with stable codes and never expose JWT/MongoDB diagnostics. Security events cover
+login success/failure, refresh success/failure/reuse, logout and explicit
+revocation. Metadata is bounded and rejects token, cookie, password,
+authorization, secret and hash fields; IP addresses are one-way digested. Audit
+writes are fail-open and emit only the event name on persistence failure, so an
+audit outage does not corrupt an already-committed session transition.
 
 ### Paystack key mode
 

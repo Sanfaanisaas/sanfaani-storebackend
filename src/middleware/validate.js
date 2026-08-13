@@ -1,6 +1,8 @@
 export function validate(schema, source = "body") {
   return (req, res, next) => {
-    const dataToValidate = source === "query" ? req.query : req.body;
+    const dataToValidate = source === "query"
+      ? req.query
+      : source === "params" ? req.params : req.body;
     const result = schema.safeParse(dataToValidate);
 
     if (!result.success) {
@@ -17,6 +19,8 @@ export function validate(schema, source = "body") {
 
     if (source === "query") {
       req.query = result.data;
+    } else if (source === "params") {
+      req.params = result.data;
     } else {
       req.body = result.data;
     }

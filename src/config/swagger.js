@@ -20,6 +20,40 @@ const options = {
         },
       },
       schemas: {
+        AuthError: {
+          type: "object",
+          required: ["success", "message", "errors"],
+          additionalProperties: false,
+          properties: {
+            success: { type: "boolean", const: false },
+            message: { type: "string" },
+            errors: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["code", "message"],
+                properties: {
+                  code: { type: "string", example: "refresh_token_reuse_detected" },
+                  message: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        AccountSession: {
+          type: "object",
+          required: ["id", "createdAt", "lastUsedAt", "expiresAt", "deviceLabel", "current", "revoked"],
+          additionalProperties: false,
+          properties: {
+            id: { type: "string", format: "uuid" },
+            createdAt: { type: "string", format: "date-time" },
+            lastUsedAt: { type: "string", format: "date-time" },
+            expiresAt: { type: "string", format: "date-time" },
+            deviceLabel: { type: "string", description: "Bounded browser/device user-agent label" },
+            current: { type: "boolean" },
+            revoked: { type: "boolean" },
+          },
+        },
         WarrantyTerms: {
           type: "object",
           required: ["version", "terms"],
