@@ -13,8 +13,8 @@ const authSessionSchema = new Schema({
   revokedAt: { type: Date, default: null },
   revocationReason: { type: String, maxlength: 80, default: null },
   deviceLabel: { type: String, maxlength: 160, default: "Unknown device" },
-  createdIp: { type: String, maxlength: 80, select: false },
-  lastUsedIp: { type: String, maxlength: 80, select: false },
+  createdIpDigest: { type: String, maxlength: 64, select: false },
+  lastUsedIpDigest: { type: String, maxlength: 64, select: false },
 }, { versionKey: false });
 
 authSessionSchema.index({ user: 1, createdAt: -1 });

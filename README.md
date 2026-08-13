@@ -11,8 +11,10 @@ Copy-Item .env.example .env
 The application requires these variables at startup:
 
 - `MONGO_URI`: MongoDB connection string
-- `JWT_SECRET`: secret used to sign access tokens
-- `JWT_REFRESH_SECRET`: separate secret used to sign refresh tokens
+- `JWT_SECRET`: independent 32+ character secret used only to sign access tokens
+- `JWT_REFRESH_SECRET`: different 32+ character secret used only to sign refresh tokens
+- `SECURITY_AUDIT_HMAC_SECRET`: third, distinct 32+ character key used only to
+  pseudonymize security-audit and session IP values
 - `PAYSTACK_SECRET_KEY`: Paystack secret key whose prefix must match `PAYSTACK_MODE`
 - `PAYSTACK_CALLBACK_URL`: absolute callback URL required by the environment schema
 
@@ -33,14 +35,22 @@ database-backed browser/device session. The 30-day refresh token is never
 returned in JSON or stored raw: it is set only as the `refreshToken` HttpOnly
 cookie and the database stores a keyed SHA-256 digest.
 
+Access and refresh JWTs are separate token domains. Both use only HS256, access
+tokens carry `type: "access"`, and refresh tokens carry `type: "refresh"`.
+Deploying the strict access-token type check invalidates access tokens issued by
+older releases without the type claim. Those tokens last at most 15 minutes,
+but affected users may need to sign in again during the rollout.
+
 The cookie path is exactly `/api/auth`. Development uses `SameSite=Lax` without
 `Secure`; production uses `SameSite=None; Secure` so a configured Vercel origin
 can call a separately hosted API. The current frontend normally proxies browser
 requests through same-origin `/api`, which is also compatible. Frontends must
 send credentials (`credentials: "include"` or Axios `withCredentials: true`).
-Credentialed CORS never uses a wildcard. Browser calls to login, refresh and
-logout must carry an `Origin` or `Referer` matching an exact `CORS_ORIGIN` entry;
-non-browser clients that send neither are supported.
+Credentialed CORS never uses a wildcard. `CORS_ORIGIN` is a comma-separated list
+of credential-free HTTP(S) origins; configured paths, queries and fragments are
+rejected. Browser calls to login, refresh and logout must carry an `Origin` or
+`Referer` matching an exact serialized origin; non-browser clients that send
+neither are supported.
 
 `POST /api/auth/refresh` authenticates only the refresh cookie. It ignores an
 absent, expired or malformed bearer header. Every success atomically consumes
@@ -64,17 +74,20 @@ Account session endpoints use the normal bearer middleware:
 
 The safe session DTO contains only `id`, `createdAt`, `lastUsedAt`, `expiresAt`,
 `deviceLabel`, `current`, and `revoked`. It excludes token digests, JWT IDs,
-family IDs, raw IP values and internal versions. Session and refresh-generation
+family IDs, IP pseudonyms and internal versions. Raw IP addresses are not stored
+in new session or security-audit documents; HMAC-SHA-256 pseudonyms use the
+dedicated audit key. Session and refresh-generation
 documents declare TTL cleanup indexes, but every refresh checks revocation and
 expiry directly; TTL deletion is not an authorization mechanism.
 
 Authentication errors use `{ "success": false, "message": "...", "errors": [] }`
 with stable codes and never expose JWT/MongoDB diagnostics. Security events cover
 login success/failure, refresh success/failure/reuse, logout and explicit
-revocation. Metadata is bounded and rejects token, cookie, password,
-authorization, secret and hash fields; IP addresses are one-way digested. Audit
-writes are fail-open and emit only the event name on persistence failure, so an
-audit outage does not corrupt an already-committed session transition.
+revocation. Event metadata uses a strict per-event allowlist: approved failure
+reasons and the revoke-all count are the only metadata fields retained. Audit
+writes are fail-open and emit only an allowlisted event name on persistence
+failure, so an audit outage does not corrupt an already-committed session
+transition.
 
 ### Paystack key mode
 

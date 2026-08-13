@@ -22,15 +22,15 @@ let setCheckoutTestHooks;
 let memoryReplicaSet;
 let fixtureSequence = 0;
 
-const ACCESS_SECRET = "cart-checkout-test-access-secret";
+const ACCESS_SECRET = "cart-checkout-test-access-secret-at-least-32-chars";
 const userId = (suffix = 1) => new mongoose.Types.ObjectId(
   `64b000000000000000000${String(suffix).padStart(3, "0")}`,
 );
 const auth = (id = userId()) => ({
   Authorization: `Bearer ${jwt.sign(
-    { userId: id.toString(), role: "customer" },
+    { userId: id.toString(), role: "customer", type: "access" },
     ACCESS_SECRET,
-    { expiresIn: "15m" },
+    { algorithm: "HS256", expiresIn: "15m" },
   )}`,
 });
 
@@ -118,10 +118,12 @@ const cartLine = (aggregate, overrides = {}) => ({
 test.before(async () => {
   process.env.NODE_ENV = "test";
   process.env.JWT_SECRET = ACCESS_SECRET;
-  process.env.JWT_REFRESH_SECRET = "cart-checkout-test-refresh-secret";
+  process.env.JWT_REFRESH_SECRET = "cart-checkout-test-refresh-secret-at-least-32-chars";
+  process.env.SECURITY_AUDIT_HMAC_SECRET = "cart-checkout-test-audit-hmac-secret-at-least-32-chars";
   process.env.PAYSTACK_MODE = "test";
   process.env.PAYSTACK_SECRET_KEY = "sk_test_cart_checkout_contract";
   process.env.PAYSTACK_CALLBACK_URL = "https://example.test/paystack/callback";
+  process.env.SENTRY_DSN = "https://example.test/sentry/1";
   process.env.MONGOMS_DOWNLOAD_DIR ||= join(tmpdir(), "sanfaani-mongodb-binaries");
   delete process.env.TEST_MONGO_URI;
 

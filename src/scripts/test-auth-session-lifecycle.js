@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash, randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -15,11 +16,16 @@ let SecurityAuditEvent;
 let User;
 let runtimeEnv;
 let tokenService;
+let auditService;
+let validateEnvironment;
+let authController;
+let originService;
 let setAuthSessionTestHooks;
 let replSet;
 let sequence = 0;
 
-const trustedOrigin = "http://localhost:3000";
+const trustedOrigin = "https://a.example";
+const secondTrustedOrigin = "https://b.example";
 const cookieValue = (response) => {
   const header = response.headers["set-cookie"]?.find((value) => value.startsWith("refreshToken="));
   return header?.split(";")[0];
@@ -59,10 +65,12 @@ test.before(async () => {
   process.env.NODE_ENV = "test";
   process.env.JWT_SECRET = "be03-access-secret-for-isolated-tests";
   process.env.JWT_REFRESH_SECRET = "be03-refresh-secret-for-isolated-tests";
+  process.env.SECURITY_AUDIT_HMAC_SECRET = "be03-audit-hmac-secret-for-isolated-tests";
   process.env.PAYSTACK_MODE = "test";
   process.env.PAYSTACK_SECRET_KEY = "sk_test_be03_sessions";
   process.env.PAYSTACK_CALLBACK_URL = "https://example.test/paystack/callback";
-  process.env.CORS_ORIGIN = trustedOrigin;
+  process.env.SENTRY_DSN = "https://example.test/sentry/1";
+  process.env.CORS_ORIGIN = `${trustedOrigin}, ${secondTrustedOrigin}`;
   process.env.MONGOMS_DOWNLOAD_DIR ||= join(tmpdir(), "sanfaani-mongodb-binaries");
   delete process.env.TEST_MONGO_URI;
   replSet = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: "wiredTiger" } });
@@ -73,8 +81,11 @@ test.before(async () => {
   ({ default: RefreshToken } = await import("../models/RefreshToken.js"));
   ({ default: SecurityAuditEvent } = await import("../models/SecurityAuditEvent.js"));
   ({ default: User } = await import("../models/User.js"));
-  ({ env: runtimeEnv } = await import("../config/env.js"));
+  ({ env: runtimeEnv, validateEnvironment } = await import("../config/env.js"));
   tokenService = await import("../services/tokenService.js");
+  auditService = await import("../services/securityAuditService.js");
+  authController = await import("../controllers/authController.js");
+  originService = await import("../config/trustedOrigins.js");
   ({ setAuthSessionTestHooks } = await import("../services/authSessionService.js"));
   await mongoose.syncIndexes();
 });
@@ -341,4 +352,392 @@ test("36. Session indexes include lookup, uniqueness, and TTL policies", async (
   assert.ok(sessionIndexes.some((index) => index.key.sessionId === 1 && index.unique));
   assert.ok(tokenIndexes.some((index) => index.key.jti === 1 && index.unique));
   assert.ok(tokenIndexes.some((index) => index.key.expiresAt === 1 && index.expireAfterSeconds === 0));
+});
+
+const validEnvironment = () => ({
+  PORT: "5000",
+  MONGO_URI: "mongodb://127.0.0.1:27017/validation-only",
+  JWT_SECRET: "a".repeat(32),
+  JWT_REFRESH_SECRET: "b".repeat(32),
+  SECURITY_AUDIT_HMAC_SECRET: "c".repeat(32),
+  PAYSTACK_MODE: "test",
+  PAYSTACK_SECRET_KEY: "sk_test_documentation_placeholder",
+  PAYSTACK_CALLBACK_URL: "https://example.test/payment/callback",
+  NODE_ENV: "test",
+});
+
+test("37. Environment rejects a short access secret", () => {
+  assert.equal(validateEnvironment({ ...validEnvironment(), JWT_SECRET: "short" }).success, false);
+});
+
+test("38. Environment rejects a short refresh secret", () => {
+  assert.equal(validateEnvironment({ ...validEnvironment(), JWT_REFRESH_SECRET: "short" }).success, false);
+});
+
+test("39. Environment rejects identical access and refresh secrets", () => {
+  const values = validEnvironment();
+  values.JWT_REFRESH_SECRET = values.JWT_SECRET;
+  assert.equal(validateEnvironment(values).success, false);
+});
+
+test("40. Environment accepts three distinct 32+ character security secrets", () => {
+  assert.equal(validateEnvironment(validEnvironment()).success, true);
+});
+
+test("41. Environment rejects a short or JWT-reused audit HMAC secret", () => {
+  const values = validEnvironment();
+  assert.equal(validateEnvironment({ ...values, SECURITY_AUDIT_HMAC_SECRET: "short" }).success, false);
+  assert.equal(validateEnvironment({
+    ...values,
+    SECURITY_AUDIT_HMAC_SECRET: values.JWT_SECRET,
+  }).success, false);
+});
+
+test("42. Access tokens contain the access type and explicitly use HS256", () => {
+  const token = tokenService.generateAccessToken({
+    _id: new mongoose.Types.ObjectId(),
+    role: "customer",
+  });
+  assert.equal(jwt.decode(token).type, "access");
+  assert.equal(jwt.decode(token, { complete: true }).header.alg, "HS256");
+  assert.equal(tokenService.verifyAccessToken(token).type, "access");
+});
+
+test("43. Refresh tokens cannot authenticate as access tokens", () => {
+  const token = tokenService.generateRefreshToken({
+    userId: new mongoose.Types.ObjectId().toString(),
+    sessionId: randomUUID(),
+    familyId: randomUUID(),
+    jti: randomUUID(),
+  });
+  assert.throws(() => tokenService.verifyAccessToken(token));
+
+  const refreshTypedWithAccessKey = jwt.sign(
+    { type: "refresh", userId: "x" },
+    process.env.JWT_SECRET,
+    { algorithm: "HS256" },
+  );
+  assert.throws(() => tokenService.verifyAccessToken(refreshTypedWithAccessKey));
+});
+
+test("44. Access tokens cannot authenticate as refresh tokens", () => {
+  const token = tokenService.generateAccessToken({
+    _id: new mongoose.Types.ObjectId(),
+    role: "customer",
+  });
+  assert.throws(() => tokenService.verifyRefreshToken(token));
+
+  const accessTypedWithRefreshKey = jwt.sign(
+    { type: "access", userId: "x" },
+    process.env.JWT_REFRESH_SECRET,
+    { algorithm: "HS256" },
+  );
+  assert.throws(() => tokenService.verifyRefreshToken(accessTypedWithRefreshKey));
+});
+
+test("45. Tokens missing the access type are rejected", () => {
+  const legacy = jwt.sign(
+    { userId: new mongoose.Types.ObjectId().toString(), role: "customer" },
+    process.env.JWT_SECRET,
+    { algorithm: "HS256", expiresIn: "15m" },
+  );
+  assert.throws(() => tokenService.verifyAccessToken(legacy));
+});
+
+test("46. HS384 access and refresh tokens are rejected", () => {
+  const access = jwt.sign(
+    { type: "access", userId: "x", role: "customer" },
+    process.env.JWT_SECRET,
+    { algorithm: "HS384" },
+  );
+  const refresh = jwt.sign(
+    { type: "refresh", userId: "x", sessionId: "x", familyId: "x", jti: "x" },
+    process.env.JWT_REFRESH_SECRET,
+    { algorithm: "HS384" },
+  );
+  assert.throws(() => tokenService.verifyAccessToken(access));
+  assert.throws(() => tokenService.verifyRefreshToken(refresh));
+  assert.throws(() => tokenService.verifyRefreshTokenIgnoringExpiry(refresh));
+});
+
+test("47. Valid HS256 access and refresh verification remains supported", () => {
+  const access = tokenService.generateAccessToken({
+    _id: new mongoose.Types.ObjectId(),
+    role: "customer",
+  });
+  const refresh = tokenService.generateRefreshToken({
+    userId: new mongoose.Types.ObjectId().toString(),
+    sessionId: randomUUID(),
+    familyId: randomUUID(),
+    jti: randomUUID(),
+  });
+  assert.equal(tokenService.verifyAccessToken(access).type, "access");
+  assert.equal(tokenService.verifyRefreshToken(refresh).type, "refresh");
+  assert.equal(tokenService.verifyRefreshTokenIgnoringExpiry(refresh).type, "refresh");
+});
+
+test("48. Audit IP pseudonyms are keyed, deterministic, and not plain SHA-256", () => {
+  const ip = "203.0.113.42";
+  const firstKey = "first-audit-test-key-that-is-at-least-32-characters";
+  const secondKey = "second-audit-test-key-that-is-at-least-32-characters";
+  const first = auditService.digestAuditIp(ip, firstKey);
+  assert.equal(first, auditService.digestAuditIp(ip, firstKey));
+  assert.notEqual(first, auditService.digestAuditIp(ip, secondKey));
+  assert.notEqual(first, createHash("sha256").update(ip).digest("hex"));
+});
+
+test("49. Audit and session documents contain IP pseudonyms but never the raw IP", async () => {
+  const ip = "203.0.113.77";
+  const user = await createUser();
+  const response = await request(app).post("/api/auth/login")
+    .set("Origin", trustedOrigin)
+    .set("X-Forwarded-For", ip)
+    .send({ email: user.email, password: "password123" });
+  assert.equal(response.status, 200);
+
+  const audit = await SecurityAuditEvent.findOne({ event: "login_succeeded" }).lean();
+  const session = await AuthSession.findOne()
+    .select("+createdIpDigest +lastUsedIpDigest")
+    .lean();
+  assert.equal(audit.ipDigest, auditService.digestAuditIp(ip));
+  assert.equal(session.createdIpDigest, audit.ipDigest);
+  assert.equal(session.lastUsedIpDigest, audit.ipDigest);
+  assert.equal(JSON.stringify([audit, session]).includes(ip), false);
+  assert.equal(Object.hasOwn(session, "createdIp"), false);
+  assert.equal(Object.hasOwn(session, "lastUsedIp"), false);
+});
+
+test("50. Audit metadata rejects nested, array, case-varied, unexpected, and complex values", () => {
+  const sanitize = auditService.sanitizeSecurityAuditMetadata;
+  assert.throws(() => sanitize("login_failed", { reason: { token: "secret" } }));
+  assert.throws(() => sanitize("login_failed", { reason: ["secret"] }));
+  assert.throws(() => sanitize("login_failed", { Authorization: "secret" }));
+  assert.throws(() => sanitize("login_failed", { Reason: "invalid_credentials" }));
+  assert.throws(() => sanitize("login_failed", { note: "invalid_credentials" }));
+  assert.throws(() => sanitize("login_failed", { reason: "x".repeat(201) }));
+  assert.throws(() => sanitize("login_failed", { reason: () => "invalid_credentials" }));
+  assert.throws(() => sanitize("login_failed", { reason: Symbol("invalid_credentials") }));
+  assert.throws(() => sanitize("LOGIN_FAILED", { reason: "invalid_credentials" }));
+  assert.throws(() => sanitize("login_failed", { reason: "header.payload.signature" }));
+});
+
+test("51. Audit metadata retains only valid per-event reasons and counts", () => {
+  assert.deepEqual(
+    auditService.sanitizeSecurityAuditMetadata("login_failed", { reason: "invalid_credentials" }),
+    { reason: "invalid_credentials" },
+  );
+  assert.deepEqual(
+    auditService.sanitizeSecurityAuditMetadata("refresh_failed", { reason: "expired" }),
+    { reason: "expired" },
+  );
+  assert.deepEqual(
+    auditService.sanitizeSecurityAuditMetadata("all_sessions_revoked", { count: 2 }),
+    { count: 2 },
+  );
+  assert.throws(() => auditService.sanitizeSecurityAuditMetadata(
+    "all_sessions_revoked",
+    { count: 1.5 },
+  ));
+});
+
+test("52. Dummy login hash is valid and uses the registration cost factor", () => {
+  assert.equal(bcrypt.getRounds(authController.DUMMY_PASSWORD_HASH), 12);
+  assert.equal(bcrypt.getRounds(authController.DUMMY_PASSWORD_HASH), authController.PASSWORD_HASH_COST);
+});
+
+test("53. Unknown-email and wrong-password login failures are publicly indistinguishable", async () => {
+  const user = await createUser();
+  const wrongPassword = await request(app).post("/api/auth/login")
+    .set("Origin", trustedOrigin)
+    .set("X-Forwarded-For", "203.0.113.91")
+    .send({ email: user.email, password: "incorrect-password" });
+  const unknownEmail = await request(app).post("/api/auth/login")
+    .set("Origin", trustedOrigin)
+    .set("X-Forwarded-For", "203.0.113.92")
+    .send({ email: "unknown@example.test", password: "incorrect-password" });
+
+  assert.equal(wrongPassword.status, 401);
+  assert.equal(unknownEmail.status, wrongPassword.status);
+  assert.deepEqual(unknownEmail.body, wrongPassword.body);
+  assert.equal(cookieValue(wrongPassword), undefined);
+  assert.equal(cookieValue(unknownEmail), undefined);
+  assert.equal(await AuthSession.countDocuments(), 0);
+  assert.equal(await RefreshToken.countDocuments(), 0);
+
+  const events = await SecurityAuditEvent.find({ event: "login_failed" }).lean();
+  assert.equal(events.length, 2);
+  assert.ok(events.every(({ metadata }) => (
+    Object.keys(metadata).length === 1 && metadata.reason === "invalid_credentials"
+  )));
+});
+
+test("54. Spaced trusted-origin configuration passes CORS and CSRF for both origins", async () => {
+  for (const origin of [trustedOrigin, secondTrustedOrigin]) {
+    const result = await login({ origin });
+    assert.equal(result.response.status, 200);
+    assert.equal(result.response.headers["access-control-allow-origin"], origin);
+    assert.equal(result.response.headers["access-control-allow-credentials"], "true");
+    assert.notEqual(result.response.headers["access-control-allow-origin"], "*");
+
+    const refreshed = await request(app).post("/api/auth/refresh")
+      .set("Origin", origin)
+      .set("Cookie", result.cookie);
+    assert.equal(refreshed.status, 200);
+    assert.equal(refreshed.headers["access-control-allow-origin"], origin);
+  }
+});
+
+test("55. Trusted-origin parsing normalizes trailing slashes and rejects unsafe configuration", () => {
+  assert.deepEqual(
+    [...originService.parseTrustedOrigins("https://a.example/, https://b.example")],
+    [trustedOrigin, secondTrustedOrigin],
+  );
+  for (const configured of [
+    "*",
+    "https://user:pass@a.example",
+    "https://a.example/path",
+    "https://a.example?query=1",
+    "https://a.example#fragment",
+    "ftp://a.example",
+  ]) {
+    assert.throws(() => originService.parseTrustedOrigins(configured));
+  }
+});
+
+test("56. Null, malformed, and malicious-suffix origins are rejected", async () => {
+  for (const origin of ["null", "not a url", "https://a.example.evil.test"]) {
+    const response = await request(app).post("/api/auth/logout").set("Origin", origin);
+    assertEnvelope(response, 403);
+  }
+});
+
+test("57. Valid Referer origins pass while malformed Referer values fail", async () => {
+  const accepted = await request(app).post("/api/auth/logout")
+    .set("Referer", `${secondTrustedOrigin}/account/sessions?from=settings`);
+  assert.equal(accepted.status, 200);
+  assertEnvelope(
+    await request(app).post("/api/auth/logout").set("Referer", "not a url"),
+    403,
+  );
+});
+
+test("58. Cookie-auth routes preserve non-browser clients without Origin or Referer", async () => {
+  assert.equal((await request(app).post("/api/auth/logout")).status, 200);
+});
+
+test("59. Logout with a malformed refresh cookie is idempotent and controlled", async () => {
+  const response = await request(app).post("/api/auth/logout")
+    .set("Origin", trustedOrigin)
+    .set("Cookie", "refreshToken=malformed");
+  assert.equal(response.status, 200);
+  assert.equal(response.body.success, true);
+  assert.match(response.headers["set-cookie"][0], /^refreshToken=;/);
+});
+
+test("60. Logout recognizes an expired signed refresh cookie and revokes its session", async () => {
+  const { cookie } = await login();
+  const originalClaims = tokenService.verifyRefreshToken(cookieToken(cookie));
+  const expired = jwt.sign({
+    type: "refresh",
+    userId: originalClaims.userId,
+    sessionId: originalClaims.sessionId,
+    familyId: originalClaims.familyId,
+    jti: originalClaims.jti,
+  }, process.env.JWT_REFRESH_SECRET, { algorithm: "HS256", expiresIn: -1 });
+  await RefreshToken.collection.updateOne(
+    { jti: originalClaims.jti },
+    { $set: { tokenDigest: tokenService.digestRefreshToken(expired) } },
+  );
+
+  const response = await request(app).post("/api/auth/logout")
+    .set("Origin", trustedOrigin)
+    .set("Cookie", `refreshToken=${expired}`);
+  assert.equal(response.status, 200);
+  assert.ok((await AuthSession.findOne()).revokedAt);
+  assert.match(response.headers["set-cookie"][0], /^refreshToken=;/);
+});
+
+test("61. Logout with an already-revoked refresh cookie remains idempotent", async () => {
+  const { cookie } = await login();
+  const first = await request(app).post("/api/auth/logout")
+    .set("Origin", trustedOrigin).set("Cookie", cookie);
+  const second = await request(app).post("/api/auth/logout")
+    .set("Origin", trustedOrigin).set("Cookie", cookie);
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 200);
+  assert.match(second.headers["set-cookie"][0], /^refreshToken=;/);
+});
+
+test("62. Identifiable refresh record with a stored digest mismatch is detected", async () => {
+  const { cookie } = await login();
+  const claims = tokenService.verifyRefreshToken(cookieToken(cookie));
+  await RefreshToken.collection.updateOne(
+    { jti: claims.jti },
+    { $set: { tokenDigest: "0".repeat(64) } },
+  );
+  const response = await refreshWith(cookie);
+  assertEnvelope(response);
+  assert.equal(response.body.errors[0].code, "refresh_token_reuse_detected");
+});
+
+test("63. Digest mismatch revokes the family and returns the controlled reuse response", async () => {
+  const { cookie } = await login();
+  const claims = tokenService.verifyRefreshToken(cookieToken(cookie));
+  await RefreshToken.collection.updateOne(
+    { jti: claims.jti },
+    { $set: { tokenDigest: "f".repeat(64) } },
+  );
+  const response = await refreshWith(cookie);
+  assertEnvelope(response);
+  assert.equal(response.body.message, "Session is no longer valid");
+  assert.equal(response.body.errors[0].code, "refresh_token_reuse_detected");
+  assert.ok((await AuthSession.findOne()).revokedAt);
+  assert.equal(await RefreshToken.countDocuments({ status: "active" }), 0);
+});
+
+test("64. Active successor is unusable after digest-mismatch reuse detection", async () => {
+  const { cookie } = await login();
+  const rotated = await refreshWith(cookie);
+  const successor = cookieValue(rotated);
+  const oldClaims = tokenService.verifyRefreshToken(cookieToken(cookie));
+  const forgedIdentifiableToken = jwt.sign({
+    type: "refresh",
+    userId: oldClaims.userId,
+    sessionId: oldClaims.sessionId,
+    familyId: oldClaims.familyId,
+    jti: oldClaims.jti,
+  }, process.env.JWT_REFRESH_SECRET, { algorithm: "HS256", expiresIn: "30d" });
+
+  const detection = await refreshWith(`refreshToken=${forgedIdentifiableToken}`);
+  assertEnvelope(detection);
+  assert.equal(detection.body.errors[0].code, "refresh_token_reuse_detected");
+  const successorResponse = await refreshWith(successor);
+  assertEnvelope(successorResponse);
+  assert.equal(successorResponse.body.errors[0].code, "refresh_token_reuse_detected");
+});
+
+test("65. Negative session responses expose no raw token, digest, JWT, or database detail", async () => {
+  const { cookie } = await login();
+  const token = cookieToken(cookie);
+  const claims = tokenService.verifyRefreshToken(token);
+  const record = await RefreshToken.findOne({ jti: claims.jti }).select("+tokenDigest").lean();
+  await RefreshToken.collection.updateOne(
+    { jti: claims.jti },
+    { $set: { tokenDigest: "a".repeat(64) } },
+  );
+  const response = await refreshWith(cookie);
+  assertEnvelope(response);
+  const publicText = JSON.stringify(response.body);
+  for (const forbidden of [
+    token,
+    record.tokenDigest,
+    "tokenDigest",
+    "JsonWebTokenError",
+    "TokenExpiredError",
+    "MongoServerError",
+    "collection",
+    "database",
+  ]) {
+    assert.equal(publicText.includes(forbidden), false);
+  }
 });

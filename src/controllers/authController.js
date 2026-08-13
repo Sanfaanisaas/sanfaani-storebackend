@@ -20,6 +20,9 @@ import { catchAsync } from "../utils/catchAsync.js";
 import AppError from "../utils/AppError.js";
 import { clearRefreshCookie, REFRESH_COOKIE_NAME, setRefreshCookie } from "../utils/refreshCookie.js";
 
+export const PASSWORD_HASH_COST = 12;
+export const DUMMY_PASSWORD_HASH = "$2b$12$STwmCXXAcG1juP88YSrvc.xvHyHZ6Kd.MLSEIDJg.cpO16B1PEc0K";
+
 const fail = (res, message, code, detail = "Sign in again to continue") => res.status(401).json({
   success: false,
   message,
@@ -42,7 +45,7 @@ export const register = catchAsync(async (req, res) => {
       errors: [{ code: "email_in_use", message: "Use another email address" }],
     });
   }
-  const passwordHash = await bcrypt.hash(password, 12);
+  const passwordHash = await bcrypt.hash(password, PASSWORD_HASH_COST);
   const user = await User.create({ name, email, passwordHash, phone });
   return res.status(201).json({ success: true, data: user.toSafeObject() });
 });
@@ -50,8 +53,8 @@ export const register = catchAsync(async (req, res) => {
 export const login = catchAsync(async (req, res) => {
   const { email, password } = req.body;
   const user = await User.findOne({ email });
-  const matches = user ? await bcrypt.compare(password, user.passwordHash) : false;
-  if (!matches) {
+  const matches = await bcrypt.compare(password, user?.passwordHash || DUMMY_PASSWORD_HASH);
+  if (!user || !matches) {
     await recordSecurityEvent({
       event: "login_failed", user: user?._id, req, metadata: { reason: "invalid_credentials" },
     });

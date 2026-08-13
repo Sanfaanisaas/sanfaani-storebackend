@@ -55,8 +55,8 @@ export const createLoginSession = async (user, req) => {
         currentJti: generation.record.jti,
         expiresAt: generation.record.expiresAt,
         deviceLabel: context.deviceLabel,
-        createdIp: context.ip,
-        lastUsedIp: context.ip,
+        createdIpDigest: context.ipDigest,
+        lastUsedIpDigest: context.ipDigest,
       }], { session: dbSession });
       await RefreshToken.create([generation.record], { session: dbSession });
     });
@@ -155,7 +155,7 @@ export const rotateRefreshSession = async ({ token, claims, req }) => {
         { $set: {
           currentJti: successor.record.jti,
           lastUsedAt: now,
-          lastUsedIp: context.ip,
+          lastUsedIpDigest: context.ipDigest,
           expiresAt: successor.record.expiresAt,
         } },
         { session: dbSession, returnDocument: "after" },

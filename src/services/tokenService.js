@@ -8,9 +8,9 @@ export const REFRESH_TOKEN_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 export function generateAccessToken(user) {
   return jwt.sign(
-    { userId: user._id, role: user.role },
+    { userId: user._id, role: user.role, type: "access" },
     env.jwtSecret,
-    { expiresIn: ACCESS_TOKEN_EXPIRY, jwtid: randomUUID() }
+    { algorithm: "HS256", expiresIn: ACCESS_TOKEN_EXPIRY, jwtid: randomUUID() }
   );
 }
 
@@ -18,7 +18,7 @@ export function generateRefreshToken({ userId, sessionId, familyId, jti }) {
   return jwt.sign(
     { userId, sessionId, familyId, jti, type: "refresh" },
     env.jwtRefreshSecret,
-    { expiresIn: REFRESH_TOKEN_EXPIRY }
+    { algorithm: "HS256", expiresIn: REFRESH_TOKEN_EXPIRY }
   );
 }
 
@@ -33,17 +33,22 @@ export function refreshTokenDigestMatches(token, expectedDigest) {
 }
 
 export function verifyAccessToken(token) {
-  return jwt.verify(token, env.jwtSecret);
+  const decoded = jwt.verify(token, env.jwtSecret, { algorithms: ["HS256"] });
+  if (decoded.type !== "access") throw new jwt.JsonWebTokenError("Invalid token type");
+  return decoded;
 }
 
 export function verifyRefreshToken(token) {
-  const decoded = jwt.verify(token, env.jwtRefreshSecret);
-  if (decoded.type !== "refresh") throw new Error("Invalid token type");
+  const decoded = jwt.verify(token, env.jwtRefreshSecret, { algorithms: ["HS256"] });
+  if (decoded.type !== "refresh") throw new jwt.JsonWebTokenError("Invalid token type");
   return decoded;
 }
 
 export function verifyRefreshTokenIgnoringExpiry(token) {
-  const decoded = jwt.verify(token, env.jwtRefreshSecret, { ignoreExpiration: true });
-  if (decoded.type !== "refresh") throw new Error("Invalid token type");
+  const decoded = jwt.verify(token, env.jwtRefreshSecret, {
+    algorithms: ["HS256"],
+    ignoreExpiration: true,
+  });
+  if (decoded.type !== "refresh") throw new jwt.JsonWebTokenError("Invalid token type");
   return decoded;
 }

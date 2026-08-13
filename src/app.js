@@ -4,6 +4,7 @@ import cors from "cors";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
 import { env } from "./config/env.js";
+import { isTrustedOrigin, parseTrustedOrigins } from "./config/trustedOrigins.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { normalizeErrorEnvelope } from "./middleware/errorEnvelope.js";
 import AppError from "./utils/AppError.js";
@@ -24,12 +25,20 @@ import supportTicketRoutes from "./routes/supportTicketRoutes.js";
 
 const app = express();
 app.set("trust proxy", 1);
+const trustedOrigins = parseTrustedOrigins();
 
 // Global Middlewares
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",") : "http://localhost:3000",
+    origin(origin, callback) {
+      if (origin === undefined) return callback(null, true);
+      try {
+        return callback(null, isTrustedOrigin(origin, trustedOrigins));
+      } catch {
+        return callback(null, false);
+      }
+    },
     credentials: true,
     exposedHeaders: ["Idempotency-Replayed"],
   })

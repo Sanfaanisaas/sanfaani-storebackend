@@ -132,11 +132,13 @@ const forbiddenKeys = (value, forbidden, path = "data") => {
 
 test.before(async () => {
   process.env.NODE_ENV = "test";
-  process.env.JWT_SECRET = "catalogue-test-access-secret";
-  process.env.JWT_REFRESH_SECRET = "catalogue-test-refresh-secret";
+  process.env.JWT_SECRET = "catalogue-test-access-secret-at-least-32-chars";
+  process.env.JWT_REFRESH_SECRET = "catalogue-test-refresh-secret-at-least-32-chars";
+  process.env.SECURITY_AUDIT_HMAC_SECRET = "catalogue-test-audit-hmac-secret-at-least-32-chars";
   process.env.PAYSTACK_MODE = "test";
   process.env.PAYSTACK_SECRET_KEY = "sk_test_catalogue_contract";
   process.env.PAYSTACK_CALLBACK_URL = "https://example.test/paystack/callback";
+  process.env.SENTRY_DSN = "https://example.test/sentry/1";
 
   let mongoUri = process.env.TEST_MONGO_URI;
   if (!mongoUri) {
