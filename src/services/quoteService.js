@@ -1,107 +1,138 @@
+import mongoose from "mongoose";
 import Quote from "../models/Quote.js";
 import Repair from "../models/Repair.js";
 import AppError from "../utils/AppError.js";
-import { QUOTE_STATUS, REPAIR_STATUS } from "../utils/constants.js";
+import { QUOTE_ACTIONABLE_STATUSES, QUOTE_STATUS, REPAIR_STATUS, USER_ROLES } from "../utils/constants.js";
 import { writeAuditLog } from "./auditService.js";
 
-export const createNewQuoteVersion = async (repairId, lineItems, userId) => {
-  const repair = await Repair.findById(repairId);
-  if (!repair) {
-    throw new AppError("Repair not found.", 404);
+const QUOTE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
+const ADMIN_DECISION_ROLES = new Set([USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN]);
+const unavailable = () => new AppError("Quote information is unavailable", 404, [{ code: "quote_unavailable", message: "Check the repair reference and quote credentials" }]);
+const conflict = (code, message) => new AppError(message, 409, [{ code, message }]);
+const validId = (value) => typeof value === "string" && mongoose.isObjectIdOrHexString(value);
+
+const assertLineItems = (lineItems) => {
+  if (!Array.isArray(lineItems) || lineItems.length === 0) throw new AppError("A quote requires at least one line item", 400);
+  for (const item of lineItems) {
+    if (!item || typeof item.description !== "string" || !item.description.trim() || !Number.isSafeInteger(item.amount) || item.amount < 0) {
+      throw new AppError("Quote line items must contain a description and a non-negative integer minor-unit amount", 400);
+    }
   }
-
-  // Atomically supersede existing SENT or VIEWED quotes for this repair
-  await Quote.updateMany(
-    { 
-      repair: repairId, 
-      status: { $in: [QUOTE_STATUS.SENT, QUOTE_STATUS.VIEWED] } 
-    },
-    { $set: { status: QUOTE_STATUS.SUPERSEDED } }
-  );
-
-  // Get the latest version number
-  const latestQuote = await Quote.findOne({ repair: repairId }).sort({ version: -1 });
-  const nextVersion = latestQuote ? latestQuote.version + 1 : 1;
-
-  const totalAmount = lineItems.reduce((acc, item) => acc + item.amount, 0);
-
-  const newQuote = await Quote.create({
-    repair: repairId,
-    version: nextVersion,
-    lineItems,
-    totalAmount,
-    status: QUOTE_STATUS.PENDING,
-    createdBy: userId
-  });
-
-  // Automatically update repair status to QUOTE_SENT
-  repair.status = REPAIR_STATUS.QUOTE_SENT;
-  await repair.save();
-
-  return newQuote;
 };
 
-export const approveQuote = async (repairId, quoteId, userId, userRole) => {
-  const repair = await Repair.findById(repairId);
-  if (!repair) {
-    throw new AppError("Repair not found.", 404);
-  }
-
-  // Auth: Customer of the repair or admin
-  const isCustomer = repair.customer.toString() === userId;
-  const isAdmin = ["ops_manager", "super_admin"].includes(userRole);
-  
-  if (!isCustomer && !isAdmin) {
-    throw new AppError("Not authorized to approve this quote.", 403);
-  }
-
-  const quote = await Quote.findById(quoteId);
-  if (!quote || quote.repair.toString() !== repair.id.toString()) {
-    throw new AppError("Quote not found for this repair.", 404);
-  }
-
-  if (quote.status === QUOTE_STATUS.ACCEPTED) {
-    return quote;
-  }
-
-  quote.status = QUOTE_STATUS.ACCEPTED;
-  await quote.save();
-
-  await writeAuditLog(
-    userId,
-    'QUOTE_APPROVED',
-    'Quote',
-    quote._id,
-    { repairId: repair._id, total: quote.total }
-  );
-
-  // Data integrity check: log if other quotes are still SENT/VIEWED
-  const lingeringQuotes = await Quote.find({
-    repair: repairId,
-    _id: { $ne: quoteId },
-    status: { $in: [QUOTE_STATUS.SENT, QUOTE_STATUS.VIEWED] }
-  });
-
-  if (lingeringQuotes.length > 0) {
-    console.error(`DATA INTEGRITY BUG: Repair ${repairId} has lingering SENT/VIEWED quotes after approval.`);
-  }
-
-  return quote;
-};
-
-export const transitionToInRepair = async (repairId) => {
-  const repair = await Repair.findById(repairId);
-  if (!repair) {
-    throw new AppError("Repair not found.", 404);
-  }
-
-  // HARD BLOCK: A repair cannot move to IN_REPAIR unless it has at least one quote with status ACCEPTED.
-  const acceptedQuote = await Quote.findOne({ repair: repairId, status: QUOTE_STATUS.ACCEPTED });
-  if (!acceptedQuote) {
-    throw new AppError("Cannot start repair without an accepted quote.", 400);
-  }
-
-  repair.status = REPAIR_STATUS.IN_REPAIR;
-  await repair.save();
+const getDecisionRepair = async (repairId, actorId, actorRole, session) => {
+  if (!validId(repairId) || !validId(actorId)) throw unavailable();
+  const repair = await Repair.findById(repairId).session(session);
+  if (!repair || (repair.customer.toString() !== actorId && !ADMIN_DECISION_ROLES.has(actorRole))) throw unavailable();
   return repair;
+};
+
+export const createNewQuoteVersion = async (repairId, lineItems, userId, { estimatedDays = 3, expiresAt } = {}) => {
+  if (!validId(repairId) || !validId(userId)) throw unavailable();
+  assertLineItems(lineItems);
+  if (!Number.isSafeInteger(estimatedDays) || estimatedDays < 0 || estimatedDays > 365) throw new AppError("estimatedDays must be a whole number between 0 and 365", 400);
+  const now = new Date();
+  const quoteExpiresAt = expiresAt ? new Date(expiresAt) : new Date(now.getTime() + QUOTE_TTL_MS);
+  if (Number.isNaN(quoteExpiresAt.valueOf()) || quoteExpiresAt <= now) throw new AppError("Quote expiry must be a future UTC timestamp", 400);
+  const totalAmount = lineItems.reduce((sum, item) => sum + item.amount, 0);
+  if (!Number.isSafeInteger(totalAmount)) throw new AppError("Quote total exceeds supported integer minor units", 400);
+
+  const session = await mongoose.startSession();
+  try {
+    let quote;
+    await session.withTransaction(async () => {
+      if (!await Repair.exists({ _id: repairId }).session(session)) throw unavailable();
+      await Quote.updateMany({ repair: repairId, isActionable: true }, { $set: { status: QUOTE_STATUS.SUPERSEDED, isActionable: false } }, { session });
+      const repair = await Repair.findOneAndUpdate({ _id: repairId }, { $inc: { quoteVersionCounter: 1 }, $set: { status: REPAIR_STATUS.QUOTE_SENT } }, { returnDocument: "after", session, runValidators: true }).select("+quoteVersionCounter");
+      quote = (await Quote.create([{
+        repair: repairId,
+        version: repair.quoteVersionCounter,
+        lineItems: lineItems.map(({ description, amount }) => ({ description: description.trim(), amount })),
+        totalAmount,
+        estimatedDays,
+        status: QUOTE_STATUS.SENT,
+        isActionable: true,
+        expiresAt: quoteExpiresAt,
+        createdBy: userId,
+      }], { session }))[0];
+    });
+    await writeAuditLog(userId, "QUOTE_SENT", "Quote", quote._id, { repairId: repairId.toString(), version: quote.version, totalAmount: quote.totalAmount });
+    return quote;
+  } finally {
+    await session.endSession();
+  }
+};
+
+const decideQuote = async (repairId, quoteId, userId, userRole, decision, reason) => {
+  if (!validId(quoteId)) throw unavailable();
+  if (reason !== undefined && (typeof reason !== "string" || reason.trim().length > 500)) throw new AppError("Decline reason must be at most 500 characters", 400);
+  const session = await mongoose.startSession();
+  try {
+    let outcome;
+    let newlyDecided = false;
+    await session.withTransaction(async () => {
+      const repair = await getDecisionRepair(repairId, userId, userRole, session);
+      const now = new Date();
+      const quote = await Quote.findOneAndUpdate(
+        { _id: quoteId, repair: repair._id, status: { $in: QUOTE_ACTIONABLE_STATUSES }, isActionable: true, expiresAt: { $gt: now } },
+        { $set: { status: decision, isActionable: false, decision: { type: decision, decidedAt: now, actor: userId, actorRole: userRole, reason: decision === QUOTE_STATUS.DECLINED && reason ? reason.trim() : null } } },
+        { returnDocument: "after", session, runValidators: true },
+      );
+      if (!quote) {
+        const existing = await Quote.findOne({ _id: quoteId, repair: repair._id }).session(session);
+        if (!existing) throw unavailable();
+        if (existing.status === decision) { outcome = existing; return; }
+        if (QUOTE_ACTIONABLE_STATUSES.includes(existing.status) && existing.expiresAt <= now) {
+          await Quote.updateOne({ _id: existing._id, isActionable: true, expiresAt: { $lte: now } }, { $set: { status: QUOTE_STATUS.EXPIRED, isActionable: false } }, { session });
+          await Repair.updateOne({ _id: repair._id }, { $set: { status: REPAIR_STATUS.QUOTE_PENDING } }, { session });
+          throw conflict("quote_expired", "The quote has expired and can no longer be decided");
+        }
+        throw conflict("quote_not_actionable", "Only the latest actionable quote can be decided");
+      }
+      await Repair.updateOne({ _id: repair._id }, { $set: { status: decision === QUOTE_STATUS.ACCEPTED ? REPAIR_STATUS.APPROVED : REPAIR_STATUS.DECLINED } }, { session, runValidators: true });
+      outcome = quote;
+      newlyDecided = true;
+    });
+    if (newlyDecided) await writeAuditLog(userId, `QUOTE_${decision}`, "Quote", outcome._id, { repairId: repairId.toString(), version: outcome.version, totalAmount: outcome.totalAmount });
+    return outcome;
+  } finally {
+    await session.endSession();
+  }
+};
+
+export const approveQuote = (repairId, quoteId, userId, userRole) => decideQuote(repairId, quoteId, userId, userRole, QUOTE_STATUS.ACCEPTED);
+export const declineQuote = (repairId, quoteId, userId, userRole, reason) => decideQuote(repairId, quoteId, userId, userRole, QUOTE_STATUS.DECLINED, reason);
+
+export const expireOverdueQuotes = async (now = new Date()) => {
+  const session = await mongoose.startSession();
+  try {
+    let expiredCount = 0;
+    await session.withTransaction(async () => {
+      const expired = await Quote.find({ isActionable: true, status: { $in: QUOTE_ACTIONABLE_STATUSES }, expiresAt: { $lte: now } }).select("_id repair").session(session);
+      if (!expired.length) return;
+      const result = await Quote.updateMany({ _id: { $in: expired.map((quote) => quote._id) }, isActionable: true, expiresAt: { $lte: now } }, { $set: { status: QUOTE_STATUS.EXPIRED, isActionable: false } }, { session });
+      expiredCount = result.modifiedCount;
+      await Repair.updateMany({ _id: { $in: expired.map((quote) => quote.repair) }, status: REPAIR_STATUS.QUOTE_SENT }, { $set: { status: REPAIR_STATUS.QUOTE_PENDING } }, { session });
+    });
+    return { expiredCount };
+  } finally {
+    await session.endSession();
+  }
+};
+
+export const transitionToInRepair = async (repairId, actorId, actorRole) => {
+  if (!validId(repairId) || !validId(actorId)) throw unavailable();
+  if (![USER_ROLES.TECHNICIAN, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN].includes(actorRole)) throw new AppError("You do not have permission to start a repair", 403);
+  const session = await mongoose.startSession();
+  try {
+    let repair;
+    await session.withTransaction(async () => {
+      if (!await Quote.exists({ repair: repairId, status: QUOTE_STATUS.ACCEPTED }).session(session)) throw conflict("repair_quote_gate", "An accepted current quote is required before repair work can start");
+      repair = await Repair.findOneAndUpdate({ _id: repairId, status: REPAIR_STATUS.APPROVED }, { $set: { status: REPAIR_STATUS.IN_REPAIR } }, { returnDocument: "after", session, runValidators: true });
+      if (!repair) throw conflict("repair_quote_gate", "An accepted current quote is required before repair work can start");
+    });
+    return repair;
+  } finally {
+    await session.endSession();
+  }
 };

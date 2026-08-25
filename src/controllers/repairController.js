@@ -1,4 +1,3 @@
-import Repair from "../models/Repair.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import * as repairService from "../services/repairService.js";
 import * as quoteService from "../services/quoteService.js";
@@ -6,16 +5,16 @@ import * as quoteService from "../services/quoteService.js";
 export const createRepair = catchAsync(async (req, res) => {
   const { device, issueDescription, privacyAcknowledged } = req.body;
   
-  const repair = await Repair.create({
-    customer: req.user.id,
+  const { repair, trackingToken } = await repairService.createRepairWithTrackingToken({
+    customerId: req.user.id,
     device,
     issueDescription,
-    privacyAcknowledged
+    privacyAcknowledged,
   });
 
   res.status(201).json({
     success: true,
-    data: repair
+    data: { repair, trackingToken: trackingToken.rawToken, trackingTokenExpiresAt: trackingToken.expiresAt }
   });
 });
 
@@ -66,8 +65,13 @@ export const approveQuote = catchAsync(async (req, res) => {
   });
 });
 
+export const declineQuote = catchAsync(async (req, res) => {
+  const quote = await quoteService.declineQuote(req.params.id, req.params.quoteId, req.user.id, req.user.role, req.body.reason);
+  res.status(200).json({ success: true, data: quote });
+});
+
 export const startRepair = catchAsync(async (req, res) => {
-  const repair = await quoteService.transitionToInRepair(req.params.id);
+  const repair = await quoteService.transitionToInRepair(req.params.id, req.user.id, req.user.role);
 
   res.status(200).json({
     success: true,
@@ -113,12 +117,17 @@ export const handoverRepair = catchAsync(async (req, res) => {
 });
 
 export const trackRepair = catchAsync(async (req, res) => {
-  const publicData = await repairService.getRepairStatus(req.params.id);
+  const publicData = await repairService.getRepairStatus(req.params.id, req.user, req.get("X-Repair-Tracking-Token"));
 
   res.status(200).json({
     success: true,
     data: publicData
   });
+});
+
+export const rotateTrackingToken = catchAsync(async (req, res) => {
+  const token = await repairService.rotateOwnerTrackingToken(req.params.id, req.user.id);
+  res.status(200).json({ success: true, data: { trackingToken: token.rawToken, trackingTokenExpiresAt: token.expiresAt } });
 });
 
 /**

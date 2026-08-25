@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { authenticate, authorize } from "../middleware/authenticate.js";
+import { optionalAccessAuthentication } from "../middleware/optionalAuthenticate.js";
+import { repairTrackingRotationLimiter } from "../middleware/rateLimiter.js";
 import { validate } from "../middleware/validate.js";
 import { 
   createRepairSchema, 
@@ -12,12 +14,14 @@ import {
   recordDiagnosis,
   createQuote,
   approveQuote,
+  declineQuote,
   startRepair,
   completeRepairWork,
   addWorkLog,
   performQC,
   handoverRepair,
   trackRepair,
+  rotateTrackingToken,
   getRepairQueue
 } from "../controllers/repairController.js";
 import { USER_ROLES } from "../utils/constants.js";
@@ -59,6 +63,8 @@ router.patch(
   authenticate,
   approveQuote
 );
+
+router.patch("/:id/quote/:quoteId/decline", authenticate, declineQuote);
 
 router.patch(
   "/:id/start",
@@ -115,6 +121,7 @@ router.get(
   getRepairQueue
 );
 
-router.get("/:id/track", trackRepair);
+router.get("/:id/track", optionalAccessAuthentication, trackRepair);
+router.post("/:id/tracking-token", authenticate, repairTrackingRotationLimiter, rotateTrackingToken);
 
 export default router;

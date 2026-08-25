@@ -40,3 +40,12 @@ export const paymentLimiter = rateLimit({
   message: limiterMessage("Too many payment attempts, please try again later", "payment_rate_limited"),
   keyGenerator: (req) => req.user?.id || ipKeyGenerator(req.ip),
 });
+
+export const repairTrackingRotationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: limiterMessage("Too many tracking-token rotations, please try again later", "repair_tracking_rotation_rate_limited"),
+  keyGenerator: (req) => req.user?.id || ipKeyGenerator(req.ip),
+});

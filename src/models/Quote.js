@@ -30,10 +30,33 @@ const QuoteSchema = new Schema({
     enum: Object.values(QUOTE_STATUS),
     default: QUOTE_STATUS.DRAFT,
   },
+  isActionable: { type: Boolean, default: false, index: true },
+  expiresAt: { type: Date, default: null },
+  decision: {
+    type: {
+      type: String,
+      enum: ["ACCEPTED", "DECLINED"],
+      default: null,
+    },
+    decidedAt: { type: Date, default: null },
+    actor: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    actorRole: { type: String, default: null },
+    reason: { type: String, maxlength: 500, default: null },
+  },
   createdBy: {
     type: Schema.Types.ObjectId,
     ref: "User",
   },
 }, { timestamps: true });
+
+QuoteSchema.index({ repair: 1, version: 1 }, { unique: true, name: "unique_quote_version_per_repair" });
+QuoteSchema.index(
+  { repair: 1, isActionable: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { isActionable: true },
+    name: "one_actionable_quote_per_repair",
+  },
+);
 
 export default mongoose.model("Quote", QuoteSchema);

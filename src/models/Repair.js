@@ -41,6 +41,7 @@ const RepairSchema = new Schema({
     author: { type: Schema.Types.ObjectId, ref: "User", required: true },
     createdAt: { type: Date, default: Date.now },
   }],
+  quoteVersionCounter: { type: Number, default: 0, select: false },
 }, { timestamps: true });
 
 RepairSchema.pre("validate", function () {

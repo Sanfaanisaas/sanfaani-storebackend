@@ -9,6 +9,7 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32),
   JWT_REFRESH_SECRET: z.string().min(32),
   SECURITY_AUDIT_HMAC_SECRET: z.string().min(32),
+  REPAIR_TRACKING_TOKEN_SECRET: z.string().min(32).optional(),
   PAYSTACK_MODE: z.enum(["test", "live"]).default("test"),
   PAYSTACK_SECRET_KEY: z.string().startsWith("sk_"),
   PAYSTACK_CALLBACK_URL: z.string().url(),
@@ -28,6 +29,14 @@ const envSchema = z.object({
       code: "custom",
       message: "The security-audit HMAC secret must be independent of both JWT secrets",
       path: ["SECURITY_AUDIT_HMAC_SECRET"],
+    });
+  }
+
+  if (data.NODE_ENV === "production" && !data.REPAIR_TRACKING_TOKEN_SECRET) {
+    ctx.addIssue({
+      code: "custom",
+      message: "REPAIR_TRACKING_TOKEN_SECRET is required in production",
+      path: ["REPAIR_TRACKING_TOKEN_SECRET"],
     });
   }
 
@@ -62,6 +71,7 @@ export const env = {
   jwtSecret: parsed.data.JWT_SECRET,
   jwtRefreshSecret: parsed.data.JWT_REFRESH_SECRET,
   securityAuditHmacSecret: parsed.data.SECURITY_AUDIT_HMAC_SECRET,
+  repairTrackingTokenSecret: parsed.data.REPAIR_TRACKING_TOKEN_SECRET,
   paystackMode: parsed.data.PAYSTACK_MODE,
   paystackSecretKey: parsed.data.PAYSTACK_SECRET_KEY,
   paystackCallbackUrl: parsed.data.PAYSTACK_CALLBACK_URL,
