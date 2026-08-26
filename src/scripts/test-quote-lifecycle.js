@@ -10,7 +10,9 @@ import request from "supertest";
 let app;
 let Quote;
 let Repair;
+let AuditLog;
 let createNewQuoteVersion;
+let setAuditServiceTestHooks;
 let replicaSet;
 const ACCESS_SECRET = "quote-lifecycle-access-secret-at-least-32-characters";
 const id = () => new mongoose.Types.ObjectId().toString();
@@ -35,11 +37,13 @@ test.before(async () => {
   ({ default: app } = await import("../app.js"));
   ({ default: Quote } = await import("../models/Quote.js"));
   ({ default: Repair } = await import("../models/Repair.js"));
+  ({ default: AuditLog } = await import("../models/AuditLog.js"));
   ({ createNewQuoteVersion } = await import("../services/quoteService.js"));
+  ({ setAuditServiceTestHooks } = await import("../services/auditService.js"));
   await mongoose.syncIndexes();
 });
 test.beforeEach(async () => { for (const collection of Object.values(mongoose.connection.collections)) await collection.deleteMany({}); });
-test.after(async () => { if (mongoose.connection.readyState) await mongoose.disconnect(); if (replicaSet) await replicaSet.stop(); });
+test.after(async () => { setAuditServiceTestHooks?.(); if (mongoose.connection.readyState) await mongoose.disconnect(); if (replicaSet) await replicaSet.stop(); });
 
 test("latest sent quote accepts once, retains the decision and is idempotent", async () => {
   const owner = id(); const tech = id(); const repair = await createRepair(owner);
@@ -51,6 +55,7 @@ test("latest sent quote accepts once, retains the decision and is idempotent", a
   assert.equal(persisted.status, "ACCEPTED"); assert.equal(persisted.totalAmount, 12500);
   assert.equal(persisted.decision.type, "ACCEPTED"); assert.equal(persisted.decision.actor.toString(), owner);
   assert.equal((await Repair.findById(repair._id)).status, "APPROVED");
+  assert.equal(await AuditLog.countDocuments({ action: "QUOTE_ACCEPTED", targetId: quote._id }), 1);
 });
 
 test("latest sent quote declines once, and a conflicting decision cannot overwrite it", async () => {
@@ -74,4 +79,27 @@ test("concurrent version creation preserves one actionable quote and monotonical
   const quotes = await Quote.find({ repair: repair._id }).sort({ version: 1 }).lean();
   assert.equal(quotes.length, 5); assert.deepEqual(quotes.map((quote) => quote.version), [1, 2, 3, 4, 5]);
   assert.equal(quotes.filter((quote) => quote.isActionable).length, 1);
+});
+
+test("sent quote financial contents are immutable and quote audits roll back with their transaction", async () => {
+  const owner = id(); const repair = await createRepair(owner); const technician = id();
+  const quote = (await createQuote(repair._id, technician, "immutable labour")).body.data;
+  const persisted = await Quote.findById(quote._id);
+  persisted.lineItems[0].amount = 1;
+  await assert.rejects(persisted.save(), /immutable/);
+  assert.equal((await Quote.findById(quote._id)).totalAmount, 12500);
+
+  setAuditServiceTestHooks({ beforeWrite: async ({ action }) => {
+    if (action === "QUOTE_SENT") throw new Error("forced quote audit failure");
+  } });
+  try {
+    const response = await createQuote(repair._id, technician, "must roll back");
+    assert.equal(response.status, 500);
+    assert.equal(await Quote.countDocuments({ repair: repair._id }), 1);
+    const unchangedRepair = await Repair.findById(repair._id).select("+quoteVersionCounter").lean();
+    assert.equal(unchangedRepair.quoteVersionCounter, 1);
+    assert.equal(await AuditLog.countDocuments({ action: "QUOTE_SENT", "metadata.repairId": repair._id.toString() }), 1);
+  } finally {
+    setAuditServiceTestHooks();
+  }
 });

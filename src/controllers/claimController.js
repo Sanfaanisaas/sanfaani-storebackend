@@ -9,11 +9,16 @@ import { writeAuditLog } from "../services/auditService.js";
  * Transition table for claim status
  */
 const CLAIM_TRANSITIONS = {
-  [CLAIM_STATUS.SUBMITTED]: [CLAIM_STATUS.UNDER_REVIEW],
-  [CLAIM_STATUS.UNDER_REVIEW]: [CLAIM_STATUS.APPROVED, CLAIM_STATUS.DENIED],
-  [CLAIM_STATUS.APPROVED]: [CLAIM_STATUS.RESOLVED],
-  [CLAIM_STATUS.DENIED]: [],
-  [CLAIM_STATUS.RESOLVED]: []
+  [CLAIM_STATUS.SUBMITTED]: [CLAIM_STATUS.SCREENING, CLAIM_STATUS.CANCELLED],
+  [CLAIM_STATUS.SCREENING]: [CLAIM_STATUS.INSPECTION_REQUIRED, CLAIM_STATUS.APPROVED, CLAIM_STATUS.REJECTED],
+  [CLAIM_STATUS.INSPECTION_REQUIRED]: [CLAIM_STATUS.UNDER_INSPECTION, CLAIM_STATUS.CANCELLED],
+  [CLAIM_STATUS.UNDER_INSPECTION]: [CLAIM_STATUS.APPROVED, CLAIM_STATUS.REJECTED],
+  [CLAIM_STATUS.APPROVED]: [CLAIM_STATUS.REMEDY_IN_PROGRESS, CLAIM_STATUS.RESOLVED],
+  [CLAIM_STATUS.REMEDY_IN_PROGRESS]: [CLAIM_STATUS.RESOLVED],
+  [CLAIM_STATUS.REJECTED]: [CLAIM_STATUS.CLOSED],
+  [CLAIM_STATUS.RESOLVED]: [CLAIM_STATUS.CLOSED],
+  [CLAIM_STATUS.CLOSED]: [],
+  [CLAIM_STATUS.CANCELLED]: []
 };
 
 const isValidTransition = (current, next) => {
@@ -24,15 +29,10 @@ export const createClaim = catchAsync(async (req, res, next) => {
   const warrantyId = req.params.id;
   const { description } = req.body;
 
-  const warranty = await Warranty.findById(warrantyId);
+  const warranty = await Warranty.findOne({ _id: warrantyId, customer: req.user.id });
 
   if (!warranty) {
     return next(new AppError("Warranty not found", 404));
-  }
-
-  // Verify ownership
-  if (warranty.customer.toString() !== req.user.id) {
-    return next(new AppError("You do not own this warranty", 403));
   }
 
   // Check expiration
@@ -47,6 +47,7 @@ export const createClaim = catchAsync(async (req, res, next) => {
     description,
     status: CLAIM_STATUS.SUBMITTED
   });
+  await writeAuditLog(req.user.id, "CLAIM_SUBMITTED", "Claim", claim._id, { status: claim.status });
 
   res.status(201).json({
     success: true,

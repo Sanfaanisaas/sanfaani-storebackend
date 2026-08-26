@@ -1,0 +1,25 @@
+name: backend-ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+concurrency:
+  group: backend-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - uses: pnpm/action-setup@v4
+        with: { version: 10 }
+      - run: pnpm install --frozen-lockfile
+      - run: find src -name '*.js' -print0 | xargs -0 -n1 node --check
+      - run: pnpm test:auth-session && pnpm test:catalogue && pnpm test:cart-checkout && pnpm test:repair-tracking && pnpm test:quote-lifecycle && pnpm test:payment-transitions
+        env: { MONGOMS_DOWNLOAD_DIR: /tmp/sanfaani-completion-mongo }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: test-evidence, path: test-results/**, if-no-files-found: ignore }

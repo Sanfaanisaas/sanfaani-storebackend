@@ -93,10 +93,15 @@ export const WARRANTY_PERIOD_DAYS = 90;
 
 export const CLAIM_STATUS = Object.freeze({
   SUBMITTED: 'submitted',
-  UNDER_REVIEW: 'under_review',
+  SCREENING: 'screening',
+  INSPECTION_REQUIRED: 'inspection_required',
+  UNDER_INSPECTION: 'under_inspection',
   APPROVED: 'approved',
-  DENIED: 'denied',
+  REJECTED: 'rejected',
+  REMEDY_IN_PROGRESS: 'remedy_in_progress',
   RESOLVED: 'resolved',
+  CLOSED: 'closed',
+  CANCELLED: 'cancelled',
 });
 
 export const SUPPORT_TICKET_STATUS = Object.freeze({

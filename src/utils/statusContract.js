@@ -1,0 +1,15 @@
+import { ORDER_STATUS, REPAIR_STATUS, SUPPORT_TICKET_STATUS } from "./constants.js";
+
+export const STATUS_CONTRACT_VERSION = "2026-08-26";
+export const STAFF_QUEUE_STATUSES = Object.freeze({
+  store: [REPAIR_STATUS.REQUESTED, REPAIR_STATUS.INTAKE_SCHEDULED, REPAIR_STATUS.RECEIVED, REPAIR_STATUS.IN_CUSTODY],
+  technician: [REPAIR_STATUS.DIAGNOSING, REPAIR_STATUS.AWAITING_PARTS, REPAIR_STATUS.IN_REPAIR, REPAIR_STATUS.PAUSED],
+  qc: [REPAIR_STATUS.QC, REPAIR_STATUS.QC_PENDING],
+  financeOrders: [ORDER_STATUS.PENDING_PAYMENT],
+  support: [SUPPORT_TICKET_STATUS.OPEN, SUPPORT_TICKET_STATUS.IN_PROGRESS],
+});
+
+export const isCanonicalStatus = (domain, value) => {
+  const source = { order: ORDER_STATUS, repair: REPAIR_STATUS, support: SUPPORT_TICKET_STATUS }[domain];
+  return Boolean(source && Object.values(source).includes(value));
+};

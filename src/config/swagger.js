@@ -18,6 +18,12 @@ const options = {
           scheme: "bearer",
           bearerFormat: "JWT",
         },
+        repairTrackingToken: {
+          type: "apiKey",
+          in: "header",
+          name: "X-Repair-Tracking-Token",
+          description: "Opaque, read-only repair tracking credential. It is not accepted by mutation endpoints.",
+        },
       },
       schemas: {
         AuthError: {
@@ -38,6 +44,42 @@ const options = {
                 },
               },
             },
+          },
+        },
+        PublicQuoteTracking: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "version", "lineItems", "totalAmount", "estimatedDays", "status"],
+          properties: {
+            id: { type: "string" },
+            version: { type: "integer", minimum: 1 },
+            lineItems: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["description", "amount"],
+                properties: {
+                  description: { type: "string" },
+                  amount: { type: "integer", minimum: 0, description: "Minor currency units" },
+                },
+              },
+            },
+            totalAmount: { type: "integer", minimum: 0, description: "Minor currency units" },
+            estimatedDays: { type: "integer", minimum: 0 },
+            status: { type: "string", enum: ["SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED"] },
+          },
+        },
+        PublicRepairTracking: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "status", "nextAction", "updatedAt", "quote"],
+          properties: {
+            id: { type: "string" },
+            status: { type: "string" },
+            nextAction: { type: "string" },
+            updatedAt: { type: "string", format: "date-time" },
+            quote: { anyOf: [{ $ref: "#/components/schemas/PublicQuoteTracking" }, { type: "null" }] },
           },
         },
         AccountSession: {

@@ -1,65 +1,60 @@
-import crypto from "crypto";
-import axios from "axios";
-import Order from "../models/Order.js";
-import { env } from "../config/env.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import AppError from "../utils/AppError.js";
-import { ORDER_STATUS } from "../utils/constants.js";
+import { getPaystackProvider } from "../services/paystackProvider.js";
+import { createPaymentAttempt, processVerifiedPaymentEvent } from "../services/paymentTransitionService.js";
+
+const normalizedWebhook = (event) => {
+  const data = event?.data && typeof event.data === "object" ? event.data : {};
+  const metadata = data.metadata && typeof data.metadata === "object" ? data.metadata : {};
+  return {
+    providerReference: typeof data.reference === "string" ? data.reference : "",
+    providerEventId: data.id === undefined || data.id === null ? "" : String(data.id),
+    eventType: typeof event?.event === "string" ? event.event : "unknown",
+    normalized: {
+      amount: Number.isSafeInteger(data.amount) ? data.amount : null,
+      currency: typeof data.currency === "string" ? data.currency : null,
+      paidAt: data.paid_at ? new Date(data.paid_at) : null,
+      metadata: {
+        subjectType: metadata.subjectType,
+        subjectId: metadata.subjectId,
+        owner: metadata.owner,
+        purpose: metadata.purpose,
+        quoteVersion: metadata.quoteVersion,
+      },
+    },
+  };
+};
 
 export const initiatePayment = catchAsync(async (req, res) => {
-  const { orderId } = req.body;
-  const user = req.user;
-
-  const order = await Order.findOne({
-    _id: orderId,
-    userId: user.id,
-    paymentStatus: "pending",
-  });
-
-  if (!order) throw new AppError("Order not found", 404);
-
-  const response = await axios.post(
-    "https://api.paystack.co/transaction/initialize",
-    {
-      email: user.email,
-      amount: Math.round(order.total * 100), // kobo
-      reference: order._id.toString(),
-      metadata: { orderId: order._id.toString() },
+  const subjectType = req.body.subjectType || "order";
+  const subjectId = req.body.subjectId || req.body.orderId;
+  const idempotencyKey = req.get("Idempotency-Key");
+  if (!idempotencyKey || idempotencyKey.length > 128) throw new AppError("Idempotency-Key is required", 400);
+  const attempt = await createPaymentAttempt({ subjectType, subjectId, owner: req.user.id, idempotencyKey, purpose: req.body.purpose });
+  const payment = attempt.payment;
+  if (attempt.replayed) res.set("Idempotency-Replayed", "true");
+  const response = await getPaystackProvider().initializePayment({
+    email: req.body.email,
+    amount: payment.amount,
+    reference: payment.providerReference,
+    metadata: {
+      subjectId: payment.subjectId.toString(), subjectType: payment.subjectType,
+      owner: payment.owner.toString(), purpose: payment.purpose,
+      quoteVersion: payment.quoteVersion, paymentId: payment._id.toString(),
     },
-    {
-      headers: {
-        Authorization: `Bearer ${env.paystackSecretKey}`,
-        "Content-Type": "application/json",
-      },
-    }
-  );
-
-  res.status(200).json({
-    status: "success",
-    data: { authorizationUrl: response.data.data.authorization_url },
   });
+  res.status(200).json({ status: "success", data: { authorizationUrl: response.authorizationUrl, paymentId: payment._id } });
 });
 
 export const handleWebhook = catchAsync(async (req, res) => {
-  const hash = crypto
-    .createHmac("sha512", env.paystackSecretKey)
-    .update(req.body)
-    .digest("hex");
-
-  if (hash !== req.headers["x-paystack-signature"]) {
-    return res.sendStatus(401);
+  const signature = req.headers["x-paystack-signature"];
+  if (!getPaystackProvider().verifyWebhookSignature(req.body, signature)) {
+    throw new AppError("Webhook signature is invalid", 401, [{ code: "webhook_signature_invalid", message: "The payment callback could not be verified" }]);
   }
-
   const event = JSON.parse(req.body.toString());
-
-  if (event.event === "charge.success") {
-    const orderId = event.data.metadata.orderId;
-    // idempotency guard — Paystack may retry delivery of the same event
-    await Order.updateOne(
-      { _id: orderId, paymentStatus: "pending" },
-      { paymentStatus: "paid", status: ORDER_STATUS.PAID, orderStatus: "processing" }
-    );
+  if (event?.event === "charge.success") {
+    const callback = normalizedWebhook(event);
+    await processVerifiedPaymentEvent({ provider: "paystack", providerReference: callback.providerReference, providerEventId: callback.providerEventId, eventType: callback.eventType, normalized: callback.normalized, rawBody: req.body });
   }
-
-  res.sendStatus(200);
+  return res.sendStatus(200);
 });

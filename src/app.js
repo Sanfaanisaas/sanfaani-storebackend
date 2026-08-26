@@ -22,6 +22,11 @@ import inventoryRoutes from "./routes/inventoryRoutes.js";
 import warrantyRoutes from "./routes/warrantyRoutes.js";
 import claimRoutes from "./routes/claimRoutes.js";
 import supportTicketRoutes from "./routes/supportTicketRoutes.js";
+import financeRoutes from "./routes/financeRoutes.js";
+import evidenceRoutes from "./routes/evidenceRoutes.js";
+import procurementRoutes from "./routes/procurementRoutes.js";
+import guidanceRoutes from "./routes/guidanceRoutes.js";
+import returnRoutes from "./routes/returnRoutes.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -52,6 +57,7 @@ app.use(normalizeErrorEnvelope);
 
 // Specific route that needs raw body MUST come before express.json()
 app.use("/api/payments/webhook", express.raw({ type: "application/json" }));
+app.use("/api/payments/paystack/webhook", express.raw({ type: "application/json" }));
 
 app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
@@ -64,6 +70,11 @@ app.use("/api/cart", cartRoutes);
 app.use("/api/checkout", checkoutRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/finance", financeRoutes);
+app.use("/api/evidence", evidenceRoutes);
+app.use("/api/procurement", procurementRoutes);
+app.use("/api/guidance", guidanceRoutes);
+app.use("/api/returns", returnRoutes);
 app.use("/api/repairs", repairRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/inventory", inventoryRoutes);

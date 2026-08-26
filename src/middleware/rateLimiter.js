@@ -41,11 +41,40 @@ export const paymentLimiter = rateLimit({
   keyGenerator: (req) => req.user?.id || ipKeyGenerator(req.ip),
 });
 
+export const refundInitiationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: limiterMessage("Too many refund requests, please try again later", "refund_rate_limited"),
+  keyGenerator: (req) => req.user?.id || ipKeyGenerator(req.ip),
+});
+
 export const repairTrackingRotationLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
   message: limiterMessage("Too many tracking-token rotations, please try again later", "repair_tracking_rotation_rate_limited"),
+  keyGenerator: (req) => req.user?.id || ipKeyGenerator(req.ip),
+});
+
+export const repairTrackingLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: limiterMessage("Too many repair tracking requests, please try again later", "repair_tracking_rate_limited"),
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
+});
+
+// A new repair returns its tracking token exactly once, so token issuance is
+// protected separately from read-only tracking requests and owner rotations.
+export const repairTrackingIssuanceLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: limiterMessage("Too many tracking-token issuance requests, please try again later", "repair_tracking_issuance_rate_limited"),
   keyGenerator: (req) => req.user?.id || ipKeyGenerator(req.ip),
 });

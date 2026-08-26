@@ -9,6 +9,7 @@ import request from "supertest";
 
 let app;
 let RepairTrackingToken;
+let Quote;
 let replicaSet;
 let sequence = 0;
 const ACCESS_SECRET = "repair-tracking-access-secret-at-least-32-characters";
@@ -51,6 +52,7 @@ test.before(async () => {
   await mongoose.connect(process.env.MONGO_URI, { dbName: `repair_tracking_${process.pid}_${Date.now()}` });
   ({ default: app } = await import("../app.js"));
   ({ default: RepairTrackingToken } = await import("../models/RepairTrackingToken.js"));
+  ({ default: Quote } = await import("../models/Quote.js"));
   await mongoose.syncIndexes();
 });
 
@@ -112,4 +114,13 @@ test("a tracking token is read-only and cannot pass owner-only mutation authoriz
   const created = await createRepair(id());
   const response = await request(app).post(`/api/repairs/${created.repair._id}/tracking-token`).set("X-Repair-Tracking-Token", created.trackingToken);
   assert.equal(response.status, 401);
+});
+
+test("tracking quote projection is a strict public allowlist", async () => {
+  const owner = id(); const created = await createRepair(owner);
+  await Quote.create({ repair: created.repair._id, version: 1, lineItems: [{ description: "Battery", amount: 1234 }], totalAmount: 1234, estimatedDays: 2, status: "SENT", isActionable: true, expiresAt: new Date(Date.now() + 60000), createdBy: id() });
+  const response = await request(app).get(`/api/repairs/${created.repair._id}/track`).set(auth(owner));
+  assert.equal(response.status, 200);
+  assert.deepEqual(Object.keys(response.body.data.quote).sort(), ["estimatedDays", "id", "lineItems", "status", "totalAmount", "version"]);
+  assert.equal(JSON.stringify(response.body.data.quote).includes("expiresAt"), false);
 });

@@ -1,0 +1,14 @@
+import { Router } from "express";
+import { authenticate, authorize } from "../middleware/authenticate.js";
+import { validate } from "../middleware/validate.js";
+import { createFinanceOverride, getReconciliation, listReconciliations, resolveReconciliation, revokeFinanceOverride } from "../controllers/financeController.js";
+import { createFinanceOverrideSchema, financeOverrideIdParamSchema, reconciliationResolutionSchema, repairIdParamSchema, revokeFinanceOverrideSchema } from "../utils/validators/financeValidators.js";
+import { USER_ROLES } from "../utils/constants.js";
+const router = Router();
+const financeRoles = [USER_ROLES.FINANCE_OFFICER, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN];
+router.get("/reconciliations", authenticate, authorize(...financeRoles), listReconciliations);
+router.get("/reconciliations/:id", authenticate, authorize(...financeRoles), getReconciliation);
+router.post("/reconciliations/:id/resolve", authenticate, authorize(...financeRoles), validate(reconciliationResolutionSchema), resolveReconciliation);
+router.post("/repairs/:repairId/overrides", authenticate, authorize(...financeRoles), validate(repairIdParamSchema, "params"), validate(createFinanceOverrideSchema), createFinanceOverride);
+router.post("/repair-finance-overrides/:overrideId/revoke", authenticate, authorize(...financeRoles), validate(financeOverrideIdParamSchema, "params"), validate(revokeFinanceOverrideSchema), revokeFinanceOverride);
+export default router;

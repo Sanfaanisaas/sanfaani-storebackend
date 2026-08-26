@@ -49,6 +49,17 @@ const QuoteSchema = new Schema({
   },
 }, { timestamps: true });
 
+// Quote financial content becomes immutable as soon as it is sent. All
+// lifecycle updates go through quoteService's conditional transition queries.
+QuoteSchema.pre("save", function enforceFinancialImmutability() {
+  if (!this.isNew && this.isModified("lineItems")) {
+    throw new Error("Sent quote line items are immutable");
+  }
+  if (!this.isNew && this.isModified("totalAmount")) {
+    throw new Error("Sent quote total is immutable");
+  }
+});
+
 QuoteSchema.index({ repair: 1, version: 1 }, { unique: true, name: "unique_quote_version_per_repair" });
 QuoteSchema.index(
   { repair: 1, isActionable: 1 },

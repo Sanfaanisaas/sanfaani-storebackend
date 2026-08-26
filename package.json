@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "server.js",
   "type": "module",
+  "engines": { "node": ">=22.0.0" },
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
@@ -10,7 +11,10 @@
     "test:catalogue": "node --test src/scripts/test-catalogue-contract.js",
     "test:cart-checkout": "node --test src/scripts/test-cart-checkout-contract.js",
     "test:repair-tracking": "node --test src/scripts/test-repair-tracking-security.js",
-    "test:quote-lifecycle": "node --test src/scripts/test-quote-lifecycle.js"
+    "test:quote-lifecycle": "node --test src/scripts/test-quote-lifecycle.js",
+    "test:payment-transitions": "node --test src/scripts/test-payment-transitions.js",
+    "test:payments": "node --test src/scripts/test-payments.js",
+    "test:repair-gates": "node --test src/scripts/test-repair-gates.js"
   },
   "keywords": [],
   "author": "",

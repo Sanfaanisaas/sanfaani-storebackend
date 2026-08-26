@@ -17,6 +17,8 @@ The application requires these variables at startup:
   pseudonymize security-audit and session IP values
 - `PAYSTACK_SECRET_KEY`: Paystack secret key whose prefix must match `PAYSTACK_MODE`
 - `PAYSTACK_CALLBACK_URL`: absolute callback URL required by the environment schema
+- `REPAIR_TRACKING_TOKEN_SECRET`: a distinct 32+ character server secret used
+  only to HMAC repair-tracking tokens; raw tracking tokens are never stored
 
 The following variables are optional:
 
@@ -106,6 +108,58 @@ Paystack variables in the deployment environment; never put a real Paystack
 secret in `.env.example` or commit it to Git.
 
 Never commit `.env` or real credentials. The repository ignores `.env`; `.env.example` contains documentation-only placeholders and is safe to commit.
+
+## Repair tracking and quotes (BE-04 / BE-05)
+
+`POST /api/repairs` is an authenticated customer route. It atomically creates
+the repair and a single opaque tracking token. The raw token is returned only in
+that creation response. It is 32 random bytes encoded as Base64URL; MongoDB
+stores only an HMAC-SHA-256 digest, scoped to `repair:track`, with expiry and
+revocation timestamps. The creation route, read route, and rotation route have
+separate rate limits.
+
+`GET /api/repairs/:id/track` accepts either the owning customer's bearer token
+or `X-Repair-Tracking-Token`. A repair ID is not a credential. Missing,
+malformed, expired, revoked, foreign, and unknown credentials deliberately
+produce the same `404` envelope. The response is a strict public DTO:
+
+```json
+{
+  "id": "repair id",
+  "status": "QUOTE_SENT",
+  "nextAction": "Review the latest quote and accept or decline it.",
+  "updatedAt": "2026-08-26T12:00:00.000Z",
+  "quote": {
+    "id": "quote id",
+    "version": 2,
+    "lineItems": [{ "description": "Battery replacement", "amount": 12500 }],
+    "totalAmount": 12500,
+    "estimatedDays": 3,
+    "status": "SENT"
+  }
+}
+```
+
+It never includes device, customer, staff, audit, supplier, cost, token, or
+other internal fields. Tracking tokens are read-only and cannot accept or
+decline a quote. `POST /api/repairs/:id/tracking-token` is owner-only; it
+transactionally revokes active prior tracking tokens before returning one new
+token once.
+
+Technicians, operations managers, and super administrators create quote
+versions with `POST /api/repairs/:id/quote`. The monetary inputs are integer
+minor units. Creating a new version transactionally supersedes the preceding
+actionable quote, and the `(repair, version)` and one-actionable-quote indexes
+make concurrent versioning safe. Sent and accepted line items and totals are
+immutable.
+
+Customers accept or decline only the current unexpired quote through
+`PATCH /api/repairs/:id/quote/:quoteId/approve` and
+`PATCH /api/repairs/:id/quote/:quoteId/decline`. Ownership is enforced in the
+database query; unavailable foreign records receive the same `404` response.
+The first decision, repair state, accepted-quote snapshot, and audit record
+commit in one transaction. Repeating the same decision is idempotent; a
+conflicting, superseded, expired, or declined decision returns `409`.
 
 ## Catalogue contract (BE-01)
 

@@ -1,0 +1,11 @@
+import { Router } from "express";
+import { authenticate, authorize } from "../middleware/authenticate.js";
+import { USER_ROLES } from "../utils/constants.js";
+import { createSupplier, createPurchaseOrder, approvePurchaseOrder, receivePurchaseOrder } from "../controllers/procurementController.js";
+const router = Router();
+const manage = [USER_ROLES.INVENTORY_OFFICER, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN];
+router.post("/suppliers", authenticate, authorize(...manage), createSupplier);
+router.post("/purchase-orders", authenticate, authorize(...manage), createPurchaseOrder);
+router.post("/purchase-orders/:id/approve", authenticate, authorize(USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN), approvePurchaseOrder);
+router.post("/purchase-orders/:id/receipts", authenticate, authorize(...manage), receivePurchaseOrder);
+export default router;

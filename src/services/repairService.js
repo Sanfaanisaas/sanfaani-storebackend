@@ -6,6 +6,7 @@ import { REPAIR_STATUS, WARRANTY_PERIOD_DAYS, QUOTE_STATUS } from "../utils/cons
 import mongoose from "mongoose";
 import { writeAuditLog } from "./auditService.js";
 import { authorizeScopedTrackingToken, createTrackingToken, isObjectId, rotateTrackingToken, trackingUnavailable } from "./repairTrackingService.js";
+import { assertRepairFinanceGate } from "./repairFinanceService.js";
 
 const NEXT_ACTION_BY_STATUS = Object.freeze({
   [REPAIR_STATUS.REQUESTED]: "We will review your repair request.",
@@ -155,73 +156,64 @@ export const addWorkLogEntry = async (repairId, authorId, note) => {
   return repair;
 };
 
-export const performQC = async (repairId, qcOfficerId, { passed, note }) => {
-  const repair = await Repair.findById(repairId);
-  if (!repair) {
-    throw new AppError("Repair not found.", 404);
+export const performQC = async (repairId, qcOfficerId, qcRole, { passed, note, checklistVersion, results, evidenceIds = [], failureReasons = [] }) => {
+  if (!["qc_officer", "super_admin"].includes(qcRole)) throw new AppError("You do not have permission to perform quality control", 403);
+  if (passed && (!checklistVersion || !results || !Array.isArray(evidenceIds) || evidenceIds.length === 0)) {
+    throw new AppError("A passed quality-control record requires checklist results and evidence", 409, [{ code: "qc_evidence_gate", message: "Complete the QC checklist and attach required evidence" }]);
   }
-
-  // HARD GATE: A technician who also happens to hold qc_officer cannot QC their own repair.
-  if (repair.technician && repair.technician.toString() === qcOfficerId) {
-    throw new AppError("Technicians cannot QC their own work.", 403);
+  const session = await mongoose.startSession();
+  try {
+    let repair;
+    await session.withTransaction(async () => {
+      repair = await Repair.findById(repairId).session(session);
+      if (!repair) throw new AppError("Repair not found.", 404);
+      // A technician who completed the work cannot self-approve QC.
+      if (repair.technician && repair.technician.toString() === qcOfficerId) throw new AppError("Technicians cannot QC their own work.", 403);
+      if (passed) await assertRepairFinanceGate(repair, "QC", session);
+      repair.qcRecord = {
+        checklistVersion: checklistVersion || null,
+        results: results || null,
+        passed: Boolean(passed),
+        officer: qcOfficerId,
+        performedAt: new Date(),
+        evidenceIds,
+        failureReasons: Array.isArray(failureReasons) ? failureReasons.slice(0, 20) : [],
+      };
+      repair.status = passed ? REPAIR_STATUS.READY : REPAIR_STATUS.IN_REPAIR;
+      await repair.save({ session });
+      await writeAuditLog(qcOfficerId, passed ? "QC_PASSED" : "QC_FAILED", "Repair", repair._id, { note: typeof note === "string" ? note.slice(0, 500) : undefined }, session);
+    });
+    return repair;
+  } finally {
+    await session.endSession();
   }
-
-  if (passed) {
-    repair.status = REPAIR_STATUS.READY;
-  } else {
-    repair.status = REPAIR_STATUS.IN_REPAIR;
-  }
-
-  await repair.save();
-
-  await writeAuditLog(
-    qcOfficerId,
-    passed ? 'QC_PASSED' : 'QC_FAILED',
-    'Repair',
-    repair._id,
-    { note }
-  );
-
-  return repair;
 };
 
-export const handoverRepair = async (repairId) => {
+export const handoverRepair = async (repairId, actorId, actorRole, handover = {}) => {
+  if (!["store_operator", "ops_manager", "super_admin"].includes(actorRole)) throw new AppError("You do not have permission to hand over repairs", 403);
   const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
-    const repair = await Repair.findById(repairId).session(session);
-    if (!repair) {
-      throw new AppError("Repair not found.", 404);
-    }
-
-    if (repair.status !== REPAIR_STATUS.READY) {
-      throw new AppError("Repair must be in READY status for handover.", 400);
-    }
-
-    repair.status = REPAIR_STATUS.HANDED_OVER;
-    await repair.save({ session });
-
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + WARRANTY_PERIOD_DAYS);
-
-    const deviceSummary = `${repair.device.brand} ${repair.device.model} (${repair.device.type})`;
-
-    const warranty = await Warranty.create([{
-      repair: repair._id,
-      customer: repair.customer,
-      deviceSummary,
-      expiresAt,
-    }], { session });
-
-    await session.commitTransaction();
-    session.endSession();
-
-    return { repair, warranty: warranty[0] };
-  } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
-    throw error;
+    let repair;
+    let warranty;
+    await session.withTransaction(async () => {
+      repair = await Repair.findById(repairId).session(session);
+      if (!repair) throw new AppError("Repair not found.", 404);
+      if (repair.status !== REPAIR_STATUS.READY || !repair.qcRecord?.passed) throw new AppError("Repair must be in READY status for handover.", 400);
+      await assertRepairFinanceGate(repair, "HANDOVER", session);
+      if (!handover.recipient || !handover.identityVerificationMethod || !handover.customerAcknowledgement) {
+        throw new AppError("Repair handover evidence is incomplete", 409, [{ code: "repair_handover_evidence_gate", message: "Recipient identity verification and acknowledgement are required" }]);
+      }
+      repair.status = REPAIR_STATUS.HANDED_OVER;
+      await repair.save({ session });
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + WARRANTY_PERIOD_DAYS);
+      const deviceSummary = `${repair.device.brand} ${repair.device.model} (${repair.device.type})`;
+      [warranty] = await Warranty.create([{ repair: repair._id, customer: repair.customer, deviceSummary, expiresAt }], { session });
+      await writeAuditLog(actorId, "REPAIR_HANDED_OVER", "Repair", repair._id, { financeGate: "passed", qcGate: "passed" }, session);
+    });
+    return { repair, warranty };
+  } finally {
+    await session.endSession();
   }
 };
 
@@ -242,7 +234,6 @@ export const toPublicRepair = async (repair) => {
       totalAmount: quote.totalAmount,
       estimatedDays: quote.estimatedDays,
       status: quote.status,
-      expiresAt: quote.expiresAt,
     } : null,
   };
 };

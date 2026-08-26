@@ -99,7 +99,7 @@ export const addWorkLog = catchAsync(async (req, res) => {
 });
 
 export const performQC = catchAsync(async (req, res) => {
-  const repair = await repairService.performQC(req.params.id, req.user.id, req.body);
+  const repair = await repairService.performQC(req.params.id, req.user.id, req.user.role, req.body);
 
   res.status(200).json({
     success: true,
@@ -108,7 +108,7 @@ export const performQC = catchAsync(async (req, res) => {
 });
 
 export const handoverRepair = catchAsync(async (req, res) => {
-  const { repair, warranty } = await repairService.handoverRepair(req.params.id);
+  const { repair, warranty } = await repairService.handoverRepair(req.params.id, req.user.id, req.user.role, req.body);
 
   res.status(200).json({
     success: true,

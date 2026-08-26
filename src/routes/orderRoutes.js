@@ -16,24 +16,13 @@ import {
 } from "../utils/validators/orderValidators.js";
 import { USER_ROLES } from "../utils/constants.js";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
 
-// Configure multer for receipt uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = "uploads/receipts";
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
-  },
+// Disk is never an evidence store. Production upload persistence must be a private object-store adapter.
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter: (req, file, callback) => callback(null, ["image/jpeg", "image/png", "application/pdf"].includes(file.mimetype)),
 });
-const upload = multer({ storage });
 
 const router = Router();
 

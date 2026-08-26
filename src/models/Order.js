@@ -73,7 +73,7 @@ const orderSchema = new mongoose.Schema(
     },
     paymentStatus: {
       type: String,
-      enum: ["pending", "paid", "failed"],
+      enum: ["pending", "paid", "failed", "partially_refunded", "refunded"],
       default: "pending",
     },
     idempotencyKey: {
@@ -98,6 +98,11 @@ const orderSchema = new mongoose.Schema(
     verifiedAt: {
       type: Date,
     },
+    dueAt: { type: Date, default: null, index: true },
+    priority: { type: String, enum: ["LOW", "NORMAL", "HIGH", "URGENT"], default: "NORMAL" },
+    blockerCode: { type: String, default: null, maxlength: 64 },
+    blockerMessage: { type: String, default: null, maxlength: 500 },
+    assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: true }
 );

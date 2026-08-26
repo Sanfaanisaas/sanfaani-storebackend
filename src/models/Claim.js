@@ -30,7 +30,9 @@ const ClaimSchema = new Schema({
     default: CLAIM_STATUS.SUBMITTED
   },
   resolutionNotes: {
-    type: String
+    type: String,
+    select: false,
+    maxlength: 2000,
   }
 }, { timestamps: true });
 

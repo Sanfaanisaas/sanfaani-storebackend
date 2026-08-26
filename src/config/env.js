@@ -10,6 +10,7 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32),
   SECURITY_AUDIT_HMAC_SECRET: z.string().min(32),
   REPAIR_TRACKING_TOKEN_SECRET: z.string().min(32).optional(),
+  GUIDANCE_TOKEN_SECRET: z.string().min(32).optional(),
   PAYSTACK_MODE: z.enum(["test", "live"]).default("test"),
   PAYSTACK_SECRET_KEY: z.string().startsWith("sk_"),
   PAYSTACK_CALLBACK_URL: z.string().url(),
@@ -38,6 +39,9 @@ const envSchema = z.object({
       message: "REPAIR_TRACKING_TOKEN_SECRET is required in production",
       path: ["REPAIR_TRACKING_TOKEN_SECRET"],
     });
+  }
+  if (data.NODE_ENV === "production" && !data.GUIDANCE_TOKEN_SECRET) {
+    ctx.addIssue({ code: "custom", message: "GUIDANCE_TOKEN_SECRET is required in production", path: ["GUIDANCE_TOKEN_SECRET"] });
   }
 
   const expectedPrefix =
@@ -72,6 +76,7 @@ export const env = {
   jwtRefreshSecret: parsed.data.JWT_REFRESH_SECRET,
   securityAuditHmacSecret: parsed.data.SECURITY_AUDIT_HMAC_SECRET,
   repairTrackingTokenSecret: parsed.data.REPAIR_TRACKING_TOKEN_SECRET,
+  guidanceTokenSecret: parsed.data.GUIDANCE_TOKEN_SECRET,
   paystackMode: parsed.data.PAYSTACK_MODE,
   paystackSecretKey: parsed.data.PAYSTACK_SECRET_KEY,
   paystackCallbackUrl: parsed.data.PAYSTACK_CALLBACK_URL,

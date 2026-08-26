@@ -7,6 +7,8 @@ import { catchAsync } from "../utils/catchAsync.js";
 import pdfkit from "pdfkit";
 import fs from "fs";
 import path from "path";
+import { env } from "../config/env.js";
+import AppError from "../utils/AppError.js";
 
 /**
  * Get authenticated user's orders with pagination
@@ -60,8 +62,12 @@ export const uploadReceipt = catchAsync(async (req, res) => {
     });
   }
 
-  // Store the relative path or full URL. For now, we use the filename.
-  order.receiptUrl = `/uploads/receipts/${req.file.filename}`;
+  if (env.nodeEnv === "production") {
+    throw new AppError("Private evidence storage is not configured", 503, [{ code: "evidence_storage_unavailable", message: "Receipt uploads are temporarily unavailable" }]);
+  }
+  // Test/development adapters must persist an evidence record before assigning a receipt reference.
+  // Do not retain an ephemeral filesystem path.
+  order.receiptUrl = null;
   order.paymentMethod = "bank_transfer";
   await order.save();
 

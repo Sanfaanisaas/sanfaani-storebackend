@@ -4,6 +4,7 @@ import Repair from "../models/Repair.js";
 import AppError from "../utils/AppError.js";
 import { QUOTE_ACTIONABLE_STATUSES, QUOTE_STATUS, REPAIR_STATUS, USER_ROLES } from "../utils/constants.js";
 import { writeAuditLog } from "./auditService.js";
+import { assertRepairFinanceGate } from "./repairFinanceService.js";
 
 const QUOTE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const ADMIN_DECISION_ROLES = new Set([USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN]);
@@ -55,8 +56,8 @@ export const createNewQuoteVersion = async (repairId, lineItems, userId, { estim
         expiresAt: quoteExpiresAt,
         createdBy: userId,
       }], { session }))[0];
+      await writeAuditLog(userId, "QUOTE_SENT", "Quote", quote._id, { repairId: repairId.toString(), version: quote.version, totalAmount: quote.totalAmount }, session);
     });
-    await writeAuditLog(userId, "QUOTE_SENT", "Quote", quote._id, { repairId: repairId.toString(), version: quote.version, totalAmount: quote.totalAmount });
     return quote;
   } finally {
     await session.endSession();
@@ -69,7 +70,6 @@ const decideQuote = async (repairId, quoteId, userId, userRole, decision, reason
   const session = await mongoose.startSession();
   try {
     let outcome;
-    let newlyDecided = false;
     await session.withTransaction(async () => {
       const repair = await getDecisionRepair(repairId, userId, userRole, session);
       const now = new Date();
@@ -89,11 +89,19 @@ const decideQuote = async (repairId, quoteId, userId, userRole, decision, reason
         }
         throw conflict("quote_not_actionable", "Only the latest actionable quote can be decided");
       }
-      await Repair.updateOne({ _id: repair._id }, { $set: { status: decision === QUOTE_STATUS.ACCEPTED ? REPAIR_STATUS.APPROVED : REPAIR_STATUS.DECLINED } }, { session, runValidators: true });
+      const accepted = decision === QUOTE_STATUS.ACCEPTED;
+      await Repair.updateOne({ _id: repair._id }, {
+        $set: accepted ? {
+          status: REPAIR_STATUS.APPROVED,
+          "financial.acceptedQuote": { quoteId: quote._id, version: quote.version, totalAmount: quote.totalAmount, currency: "NGN", acceptedAt: now },
+          "financial.acceptedQuoteTotal": quote.totalAmount,
+          "financial.outstandingBalance": quote.totalAmount,
+          "financial.lastGateEvaluatedAt": now,
+        } : { status: REPAIR_STATUS.DECLINED, "financial.refundCancellationState": "CANCELLATION_REQUESTED", "financial.lastGateEvaluatedAt": now },
+      }, { session, runValidators: true });
+      await writeAuditLog(userId, `QUOTE_${decision}`, "Quote", quote._id, { repairId: repairId.toString(), version: quote.version, totalAmount: quote.totalAmount }, session);
       outcome = quote;
-      newlyDecided = true;
     });
-    if (newlyDecided) await writeAuditLog(userId, `QUOTE_${decision}`, "Quote", outcome._id, { repairId: repairId.toString(), version: outcome.version, totalAmount: outcome.totalAmount });
     return outcome;
   } finally {
     await session.endSession();
@@ -127,9 +135,13 @@ export const transitionToInRepair = async (repairId, actorId, actorRole) => {
   try {
     let repair;
     await session.withTransaction(async () => {
-      if (!await Quote.exists({ repair: repairId, status: QUOTE_STATUS.ACCEPTED }).session(session)) throw conflict("repair_quote_gate", "An accepted current quote is required before repair work can start");
-      repair = await Repair.findOneAndUpdate({ _id: repairId, status: REPAIR_STATUS.APPROVED }, { $set: { status: REPAIR_STATUS.IN_REPAIR } }, { returnDocument: "after", session, runValidators: true });
+      const acceptedQuote = await Quote.findOne({ repair: repairId, status: QUOTE_STATUS.ACCEPTED }).session(session);
+      if (!acceptedQuote) throw conflict("repair_quote_gate", "An accepted current quote is required before repair work can start");
+      repair = await Repair.findOne({ _id: repairId, status: REPAIR_STATUS.APPROVED }).session(session);
       if (!repair) throw conflict("repair_quote_gate", "An accepted current quote is required before repair work can start");
+      await assertRepairFinanceGate(repair, "WORK_START", session);
+      repair.status = REPAIR_STATUS.IN_REPAIR;
+      await repair.save({ session });
     });
     return repair;
   } finally {
