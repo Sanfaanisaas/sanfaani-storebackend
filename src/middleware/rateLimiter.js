@@ -78,3 +78,21 @@ export const repairTrackingIssuanceLimiter = rateLimit({
   message: limiterMessage("Too many tracking-token issuance requests, please try again later", "repair_tracking_issuance_rate_limited"),
   keyGenerator: (req) => req.user?.id || ipKeyGenerator(req.ip),
 });
+
+export const evidenceUploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: limiterMessage("Too many evidence uploads, please try again later", "evidence_upload_rate_limited"),
+  keyGenerator: (req) => req.user?.id || ipKeyGenerator(req.ip),
+});
+
+export const evidenceDownloadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: limiterMessage("Too many evidence download requests, please try again later", "evidence_download_rate_limited"),
+  keyGenerator: (req) => req.user?.id || ipKeyGenerator(req.ip),
+});

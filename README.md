@@ -161,6 +161,81 @@ The first decision, repair state, accepted-quote snapshot, and audit record
 commit in one transaction. Repeating the same decision is idempotent; a
 conflicting, superseded, expired, or declined decision returns `409`.
 
+## Payments, refunds, and repair finance gates (BE-06 / BE-07)
+
+`POST /api/payments/attempts` requires an `Idempotency-Key` and an
+authenticated owner. It accepts an order or repair reference but derives the
+owner, subject type, amount, currency, purpose, and accepted repair quote
+version from MongoDB. Each new attempt creates its `Payment` and
+`PAYMENT_INITIATED` audit entry in one transaction. Idempotency is scoped to
+the owner/key and bound to a SHA-256 fingerprint of all trusted values;
+conflicting reuse returns `409`.
+
+The Paystack boundary owns authentication, timeouts, response normalization,
+and raw-body HMAC-SHA-512 signature checks. `POST /api/payments/webhook` is the
+only callback route. It verifies the signature before parsing, then compares
+reference, amount, currency, owner, subject, purpose, and quote version with
+the persisted Payment or Refund. Mismatches create a deduplicated, sanitized
+reconciliation case and never mutate finance state. Tests inject the provider;
+no focused test contacts Paystack.
+
+Refunds are standalone financial aggregates linked to one Payment. They use
+integer minor units and immutable subject/owner/purpose/currency/amount
+bindings. Payment cached totals obey:
+
+```text
+refundedAmount + reservedRefundAmount <= capturedAmount
+netPaidAmount = capturedAmount - refundedAmount
+```
+
+`POST /api/payments/:paymentId/refunds` is limited to finance officers,
+operations managers, and super administrators and is rate-limited. Reservation
+uses a conditional database update inside a transaction, so concurrent requests
+cannot exceed the captured balance. Refund states are `RESERVED`,
+`PROVIDER_PENDING`, `SUCCEEDED`, `FAILED`, and `CANCELLED`; duplicate provider
+events are idempotent and contradictory terminal events reconcile without
+regression. Provider event and reference identifiers are hashed, histories are
+bounded, and raw provider bodies/secrets are never persisted.
+
+Repair finance values are recalculated only from verified Payments and Refunds:
+accepted quote total, required deposit, verified paid/refunded, net paid,
+outstanding balance, deposit state, gate state, and evaluation time. Work start
+requires the verified deposit; QC, ready, and handover require cleared
+outstanding balance unless an active scoped finance override applies. Finance
+officers, operations managers, and super administrators create
+`POST /api/finance/repairs/:repairId/overrides` with a bounded reason and may
+revoke an override at
+`POST /api/finance/repair-finance-overrides/:overrideId/revoke`. Both preserve
+before/after evidence and audit records transactionally; they never rewrite
+provider history.
+
+## Order reservation and fulfilment (BE-08)
+
+Checkout now creates an `Order`, an append-only stock-ledger hold, and one
+`StockReservation` per order/variant in the same MongoDB transaction. A
+reservation is `RESERVED` for fifteen minutes, then moves through `ALLOCATED`,
+`CONSUMED`, `RELEASED`, or `EXPIRED`. Checkout’s conditional inventory update
+and the reservation uniqueness index prevent concurrent carts from overselling
+the same local stock.
+
+A verified payment callback converts all of its order’s `RESERVED` records to
+`ALLOCATED` transactionally. A verified failed callback, customer cancellation,
+or expiry releases eligible reservations and returns their held quantity through
+the same stock ledger exactly once. Run the audited expiry job with an explicit
+system actor:
+
+```bash
+RESERVATION_EXPIRY_ACTOR_ID=<audited-system-user-objectid> node src/scripts/expire-reservations.js
+```
+
+Customers call `PATCH /api/orders/:id/cancel` only for their own unfulfilled
+orders; foreign orders are non-enumerating. Store operators, operations
+managers, and super administrators call `PATCH /api/orders/:id/dispatch` or
+`PATCH /api/orders/:id/collect`. Both require a verified paid order with live
+allocated inventory and consume that allocation atomically. Reservation,
+allocation, release, expiry, dispatch, and collection writes all have matching
+audit records.
+
 ## Catalogue contract (BE-01)
 
 ### Lifecycle and publication
@@ -304,6 +379,59 @@ mongorestore --uri "$MONGO_URI" --drop ./backup-before-be-01
 **No production catalogue migration was performed as part of BE-01.**
 
 ## Run locally
+
+## Private evidence storage (BE-09)
+
+`POST /api/evidence` is the single multipart evidence endpoint. It accepts one
+`file` plus `subjectType`, `subjectId`, and `purpose`. The supported signatures
+are JPEG, PNG, and PDF; each request is limited to one file and 5 MiB. The
+server checks the file signature and submitted MIME consistency, computes a
+SHA-256 integrity digest, and generates an opaque random private object key.
+Original names, customer identifiers, repair IDs, and serial numbers are never
+used in keys. The response is a safe metadata DTO and excludes the key, buffer,
+storage credentials, and provider details.
+
+Supported domain/category pairs are `order/order_receipt`,
+`repair/repair_intake|custody|qc|handover|warranty`, `claim/warranty`,
+`return_request/return`, and `purchase_order/procurement`. Customers are
+scoped to their own order, repair, claim, or return record; staff access is
+limited by the applicable workflow role and, for technicians, their assigned
+repair. Foreign customer subjects and evidence are non-enumerating `404`s;
+staff members without a workflow role receive `403`.
+
+`GET /api/evidence/:id/download` rechecks that authorization and returns only a
+short-lived signed URL. The URL is neither stored nor logged. The generic
+metadata response never exposes an object key. Upload and signed-download
+requests are independently rate-limited with the standard error envelope.
+
+Production requires the `OBJECT_STORAGE_*` settings in `.env.example`: an
+S3-compatible endpoint, region, private bucket, access key ID, secret access
+key, path-style setting, and bounded signed-URL TTL (60–3600 seconds). There is
+no production local-disk fallback. Controllers use a storage interface with
+`putObject`, `getSignedDownloadUrl`, `deleteObject`, and `headObject`; tests
+inject an in-memory adapter and never contact an S3 provider.
+
+Object storage cannot participate in a MongoDB transaction. Upload writes the
+object first, then commits evidence metadata and its audit record together; a
+metadata failure deletes the object, or queues a bounded cleanup task if that
+compensation fails. Deletion first marks evidence `DELETE_PENDING`, deletes the
+object, then transactionally marks it `DELETED` with an audit record. A storage
+failure returns `202` and leaves an explicit retry task instead of concealing a
+partial result. Legal-hold evidence cannot be deleted.
+
+Run bounded orphan/finalization cleanup explicitly (it is never started by app
+imports):
+
+```bash
+pnpm cleanup:evidence
+```
+
+The worker processes at most 50 record-backed tasks per run, uses exponential
+backoff and a maximum of five attempts, treats an already absent object as a
+successful deletion, and records completion or retry exhaustion safely. It
+never scans an arbitrary bucket prefix. Frontends must submit `multipart/form-data`
+with a `file` part, must not treat a signed URL as durable, and should refresh a
+download URL only through the authenticated endpoint.
 
 ```powershell
 npm install

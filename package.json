@@ -14,7 +14,10 @@
     "test:quote-lifecycle": "node --test src/scripts/test-quote-lifecycle.js",
     "test:payment-transitions": "node --test src/scripts/test-payment-transitions.js",
     "test:payments": "node --test src/scripts/test-payments.js",
-    "test:repair-gates": "node --test src/scripts/test-repair-gates.js"
+    "test:repair-gates": "node --test src/scripts/test-repair-gates.js",
+    "test:fulfilment": "node --test src/scripts/test-fulfilment.js",
+    "test:evidence-storage": "node --test src/scripts/test-evidence-storage.js",
+    "cleanup:evidence": "node src/scripts/cleanup-orphaned-evidence.js"
   },
   "keywords": [],
   "author": "",

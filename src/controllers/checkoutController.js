@@ -7,8 +7,8 @@ import Variant from "../models/Variant.js";
 import Product from "../models/Product.js";
 import Order from "../models/Order.js";
 import { isPayOnPickupEligible } from "../services/orderService.js";
-import { recordStockMovement } from "../services/inventoryService.js";
-import { ORDER_STATUS, STOCK_MOVEMENT_REASON, PRODUCT_STATUS } from "../utils/constants.js";
+import { createReservation } from "../services/reservationService.js";
+import { ORDER_STATUS, PRODUCT_STATUS } from "../utils/constants.js";
 
 const IDEMPOTENCY_KEY_MAX_LENGTH = 128;
 let checkoutTestHooks = {};
@@ -191,33 +191,7 @@ export const createCheckout = catchAsync(async (req, res) => {
         const orderItems = [];
         let orderSubtotal = 0;
 
-        for (let index = 0; index < resolvedItems.length; index += 1) {
-          const { item, product, variant } = resolvedItems[index];
-          try {
-            await recordStockMovement(
-              variant._id,
-              -item.quantity,
-              STOCK_MOVEMENT_REASON.SALE,
-              userId,
-              session,
-            );
-          } catch (error) {
-            if (error.statusCode === 409) {
-              throw new AppError("Inventory changed during checkout", 409, [
-                conflict("insufficient_stock", "Stock changed while checkout was being committed", {
-                  productId: item.productId.toString(),
-                  variantSku: item.variantSku,
-                  requestedQuantity: item.quantity,
-                }),
-              ]);
-            }
-            throw error;
-          }
-
-          if (checkoutTestHooks.afterReservation) {
-            await checkoutTestHooks.afterReservation({ index, item, variant, session });
-          }
-
+        for (const { item, product, variant } of resolvedItems) {
           orderItems.push({
             productId: item.productId,
             variantSku: item.variantSku,
@@ -259,6 +233,23 @@ export const createCheckout = catchAsync(async (req, res) => {
           }],
           { session },
         );
+
+        for (let index = 0; index < resolvedItems.length; index += 1) {
+          const { item, product, variant } = resolvedItems[index];
+          try {
+            await createReservation({ order: createdOrder._id, product: product._id, variant: variant._id, quantity: item.quantity, actorId: userId, session });
+          } catch (error) {
+            if (error.statusCode === 409) {
+              throw new AppError("Inventory changed during checkout", 409, [
+                conflict("insufficient_stock", "Stock changed while checkout was being committed", {
+                  productId: item.productId.toString(), variantSku: item.variantSku, requestedQuantity: item.quantity,
+                }),
+              ]);
+            }
+            throw error;
+          }
+          if (checkoutTestHooks.afterReservation) await checkoutTestHooks.afterReservation({ index, item, variant, order: createdOrder, session });
+        }
 
         await Cart.deleteOne({ _id: cart._id, userId }, { session });
       });

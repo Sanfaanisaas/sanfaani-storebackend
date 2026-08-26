@@ -14,6 +14,13 @@ const envSchema = z.object({
   PAYSTACK_MODE: z.enum(["test", "live"]).default("test"),
   PAYSTACK_SECRET_KEY: z.string().startsWith("sk_"),
   PAYSTACK_CALLBACK_URL: z.string().url(),
+  OBJECT_STORAGE_ENDPOINT: z.string().url().optional(),
+  OBJECT_STORAGE_REGION: z.string().trim().min(1).max(64).optional(),
+  OBJECT_STORAGE_BUCKET: z.string().trim().min(3).max(63).regex(/^[a-z0-9][a-z0-9.-]*[a-z0-9]$/).optional(),
+  OBJECT_STORAGE_ACCESS_KEY_ID: z.string().trim().min(3).max(256).optional(),
+  OBJECT_STORAGE_SECRET_ACCESS_KEY: z.string().min(16).max(512).optional(),
+  OBJECT_STORAGE_FORCE_PATH_STYLE: z.enum(["true", "false"]).default("true"),
+  OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(300),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   SENTRY_DSN: z.string().url().optional(),
 }).superRefine((data, ctx) => {
@@ -42,6 +49,24 @@ const envSchema = z.object({
   }
   if (data.NODE_ENV === "production" && !data.GUIDANCE_TOKEN_SECRET) {
     ctx.addIssue({ code: "custom", message: "GUIDANCE_TOKEN_SECRET is required in production", path: ["GUIDANCE_TOKEN_SECRET"] });
+  }
+
+  if (data.NODE_ENV === "production") {
+    for (const key of [
+      "OBJECT_STORAGE_ENDPOINT",
+      "OBJECT_STORAGE_REGION",
+      "OBJECT_STORAGE_BUCKET",
+      "OBJECT_STORAGE_ACCESS_KEY_ID",
+      "OBJECT_STORAGE_SECRET_ACCESS_KEY",
+    ]) {
+      if (!data[key]) {
+        ctx.addIssue({
+          code: "custom",
+          message: `${key} is required in production for private evidence storage`,
+          path: [key],
+        });
+      }
+    }
   }
 
   const expectedPrefix =
@@ -80,6 +105,13 @@ export const env = {
   paystackMode: parsed.data.PAYSTACK_MODE,
   paystackSecretKey: parsed.data.PAYSTACK_SECRET_KEY,
   paystackCallbackUrl: parsed.data.PAYSTACK_CALLBACK_URL,
+  objectStorageEndpoint: parsed.data.OBJECT_STORAGE_ENDPOINT,
+  objectStorageRegion: parsed.data.OBJECT_STORAGE_REGION,
+  objectStorageBucket: parsed.data.OBJECT_STORAGE_BUCKET,
+  objectStorageAccessKeyId: parsed.data.OBJECT_STORAGE_ACCESS_KEY_ID,
+  objectStorageSecretAccessKey: parsed.data.OBJECT_STORAGE_SECRET_ACCESS_KEY,
+  objectStorageForcePathStyle: parsed.data.OBJECT_STORAGE_FORCE_PATH_STYLE === "true",
+  objectStorageSignedUrlTtlSeconds: parsed.data.OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS,
   nodeEnv: parsed.data.NODE_ENV,
   sentryDsn: parsed.data.SENTRY_DSN,
 };

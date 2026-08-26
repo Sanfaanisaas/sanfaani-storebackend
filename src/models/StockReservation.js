@@ -11,7 +11,8 @@ const schema = new mongoose.Schema({
   allocatedAt: { type: Date, default: null },
   releasedAt: { type: Date, default: null },
   consumedAt: { type: Date, default: null },
-  releaseReason: { type: String, default: null },
+  releaseReason: { type: String, default: null, maxlength: 64 },
 }, { timestamps: true });
 schema.index({ order: 1, variant: 1 }, { unique: true, name: "unique_order_variant_reservation" });
+schema.index({ status: 1, expiresAt: 1 }, { name: "reservation_expiry_lookup" });
 export default mongoose.model("StockReservation", schema);

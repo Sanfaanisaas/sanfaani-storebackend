@@ -68,5 +68,18 @@ paymentSchema.index({ "events.providerEventDigest": 1 }, { unique: true, sparse:
 paymentSchema.index({ _id: 1, "refunds.idempotencyKey": 1 }, { unique: true, sparse: true, name: "unique_refund_idempotency_per_payment" });
 paymentSchema.index({ _id: 1, status: 1 }, { name: "payment_status_lookup" });
 
+paymentSchema.pre("validate", function enforceRefundAccountingInvariants() {
+  const captured = this.capturedAmount;
+  const refunded = this.refundedAmount;
+  const reserved = this.reservedRefundAmount;
+  const net = this.netPaidAmount;
+  if (![captured, refunded, reserved, net].every((value) => Number.isSafeInteger(value) && value >= 0)) {
+    this.invalidate("capturedAmount", "Payment accounting values must be non-negative integer minor units");
+    return;
+  }
+  if (refunded + reserved > captured) this.invalidate("reservedRefundAmount", "Refunded and reserved totals cannot exceed the captured amount");
+  if (net !== captured - refunded) this.invalidate("netPaidAmount", "Net paid must equal captured amount minus refunded amount");
+});
+
 export { PAYMENT_STATUSES };
 export default mongoose.model("Payment", paymentSchema);

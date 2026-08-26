@@ -96,6 +96,32 @@ const options = {
             revoked: { type: "boolean" },
           },
         },
+        EvidenceMetadata: {
+          type: "object",
+          description: "Safe evidence projection. Object keys, bucket details, storage credentials, and file buffers are never returned.",
+          additionalProperties: false,
+          required: ["id", "subjectType", "subjectId", "purpose", "displayName", "detectedMimeType", "size", "retentionState", "createdAt"],
+          properties: {
+            id: { type: "string" },
+            subjectType: { type: "string", enum: ["order", "repair", "claim", "return_request", "purchase_order"] },
+            subjectId: { type: "string" },
+            purpose: { type: "string", enum: ["order_receipt", "repair_intake", "custody", "qc", "handover", "warranty", "return", "procurement"] },
+            displayName: { type: "string", maxLength: 160 },
+            detectedMimeType: { type: "string", enum: ["image/jpeg", "image/png", "application/pdf"] },
+            size: { type: "integer", minimum: 1, maximum: 5242880 },
+            retentionState: { type: "string", enum: ["ACTIVE", "DELETE_PENDING", "DELETED", "LEGAL_HOLD"] },
+            createdAt: { type: "string", format: "date-time" },
+          },
+        },
+        EvidenceDownload: {
+          type: "object",
+          additionalProperties: false,
+          required: ["url", "expiresAt"],
+          properties: {
+            url: { type: "string", format: "uri", description: "Short-lived authorized URL; never persist it." },
+            expiresAt: { type: "string", format: "date-time" },
+          },
+        },
         WarrantyTerms: {
           type: "object",
           required: ["version", "terms"],

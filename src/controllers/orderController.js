@@ -9,6 +9,7 @@ import fs from "fs";
 import path from "path";
 import { env } from "../config/env.js";
 import AppError from "../utils/AppError.js";
+import { cancelOrderWithReservations, fulfillOrder } from "../services/reservationService.js";
 
 /**
  * Get authenticated user's orders with pagination
@@ -141,6 +142,21 @@ export const verifyBankTransfer = catchAsync(async (req, res) => {
     success: true,
     data: order.toPublicOrder(),
   });
+});
+
+export const cancelOrder = catchAsync(async (req, res) => {
+  const order = await cancelOrderWithReservations({ orderId: req.params.id, ownerId: req.user.id, actorId: req.user.id, actorRole: req.user.role });
+  res.json({ success: true, data: order.toPublicOrder() });
+});
+
+export const dispatchOrder = catchAsync(async (req, res) => {
+  const order = await fulfillOrder({ orderId: req.params.id, actorId: req.user.id, action: "dispatch" });
+  res.json({ success: true, data: order.toPublicOrder() });
+});
+
+export const collectOrder = catchAsync(async (req, res) => {
+  const order = await fulfillOrder({ orderId: req.params.id, actorId: req.user.id, action: "collect" });
+  res.json({ success: true, data: order.toPublicOrder() });
 });
 
 /**

@@ -249,6 +249,19 @@ test("24. Provider-pending retains the reservation", async () => {
   assert.equal((await Refund.findById(refund._id)).status, "PROVIDER_PENDING");
   assert.equal((await Payment.findById(payment._id)).reservedRefundAmount, 1000);
 });
+test("verified refund provider callbacks settle through the webhook boundary", async () => {
+  const { payment } = await seedOrderPayment(); await webhook(settlement(payment)); const { refund } = await reserve(payment, id(), 1000);
+  const response = await request(app).post("/api/payments/webhook")
+    .set("X-Paystack-Signature", "fake-signature")
+    .set("Content-Type", "application/json")
+    .send({ event: "refund.processed", data: {
+      id: "verified-refund-webhook", reference: "verified-refund-provider-reference", amount: refund.amount, currency: refund.currency,
+      metadata: { ...paymentMetadata(payment), refundId: refund._id.toString() },
+    } });
+  assert.equal(response.status, 200);
+  assert.equal((await Refund.findById(refund._id)).status, "SUCCEEDED");
+  assert.equal((await Payment.findById(payment._id)).refundedAmount, 1000);
+});
 test("25. Partial refund succeeds and updates repair finance once", async () => {
   const { payment, repair } = await seedRepairPayment({ captured: 5000 }); const { refund } = await reserve(payment, id(), 2000);
   await transitions.settleRefundSuccess({ refundId: refund._id, providerEventId: "repair-success", ...providerData(refund) });

@@ -9,6 +9,7 @@ import { ORDER_STATUS } from "../utils/constants.js";
 import { writeAuditLog } from "./auditService.js";
 import { createOrTouchReconciliationCase, digestProviderIdentifier } from "./reconciliationService.js";
 import { evaluateRepairFinanceGate } from "./repairFinanceService.js";
+import { allocateOrderReservations, releaseOrderReservations } from "./reservationService.js";
 
 const PAYMENT_SUCCESS = new Set(["SUCCEEDED", "PARTIALLY_REFUNDED"]);
 const PAYMENT_TERMINAL = new Set(["SUCCEEDED", "FAILED", "CANCELLED", "REFUNDED", "DISPUTED"]);
@@ -236,8 +237,11 @@ export const applyVerifiedPaymentEvent = async ({ paymentId, providerEventId, ev
     payment.verifiedAt = new Date();
     payment.events.push({ eventId: crypto.randomUUID(), providerEventDigest: event.eventDigest, eventType: event.eventType, previousStatus, resultingStatus: "SUCCEEDED", providerTimestamp: event.providerTimestamp, receivedAt: event.receivedAt, normalizedMetadata: { amount: payment.amount, currency: payment.currency, subjectType: payment.subjectType, quoteVersion: payment.quoteVersion }, payloadDigest: digest(rawBody) });
     await payment.save({ session });
-    if (subject.order) await Order.updateOne({ _id: subject.order._id, userId: payment.owner, paymentStatus: "pending" }, { $set: { paymentStatus: "paid", status: ORDER_STATUS.PAID } }, { session });
-    else await recalculateRepairFinance(subject.repair, session);
+    if (subject.order) {
+      const updated = await Order.findOneAndUpdate({ _id: subject.order._id, userId: payment.owner, paymentStatus: "pending" }, { $set: { paymentStatus: "paid", status: ORDER_STATUS.PAID } }, { returnDocument: "after", session });
+      if (!updated) throw conflict("payment_subject_unavailable", "The payment subject is unavailable");
+      await allocateOrderReservations(updated._id, payment.owner, session);
+    } else await recalculateRepairFinance(subject.repair, session);
     await writeAuditLog(payment.owner, "PAYMENT_SETTLED", "Payment", payment._id, { subjectType: payment.subjectType, amount: payment.amount, currency: payment.currency }, session);
     return { payment, settled: true };
   });
@@ -252,6 +256,69 @@ export const processVerifiedPaymentEvent = async ({ provider, providerReference,
     const reconciliation = await createOrTouchReconciliationCase({ category: "unknown_payment_reference", expected: {}, observed: { amount: normalized?.amount, currency: normalized?.currency, providerReferenceDigest: digest(reference) }, eventDigest: event.eventDigest, session });
     return { payment: null, reconciled: true, reconciliation };
   });
+};
+
+export const processVerifiedPaymentFailure = async ({ provider, providerReference, providerEventId, eventType, normalized, rawBody }) => {
+  const reference = boundedText(providerReference, "provider reference", { max: 256 });
+  const located = await Payment.findOne({ provider, providerReference: reference }).select("_id");
+  if (!located) {
+    return runTransaction(async (session) => {
+      const event = providerEvent({ providerEventId, eventType, amount: normalized?.amount, currency: normalized?.currency });
+      const reconciliation = await createOrTouchReconciliationCase({ category: "unknown_payment_reference", expected: {}, observed: { amount: normalized?.amount, currency: normalized?.currency, providerReferenceDigest: digest(reference) }, eventDigest: event.eventDigest, session });
+      return { payment: null, reconciled: true, reconciliation };
+    });
+  }
+  return runTransaction(async (session) => {
+    const payment = await Payment.findById(located._id).session(session);
+    const event = providerEvent({ providerEventId, eventType, providerTimestamp: normalized?.paidAt, amount: normalized?.amount, currency: normalized?.currency });
+    const bindingCategory = mismatchedPaymentBinding(payment, normalized);
+    if (bindingCategory) {
+      await reconcile({ session, category: bindingCategory, payment, observed: { amount: normalized?.amount, currency: normalized?.currency, subjectType: normalized?.metadata?.subjectType, subjectId: normalized?.metadata?.subjectId, owner: normalized?.metadata?.owner, purpose: normalized?.metadata?.purpose, quoteVersion: normalized?.metadata?.quoteVersion, providerReferenceDigest: digest(rawBody) }, providerEventId, actor: payment.owner });
+      return { payment, reconciled: true };
+    }
+    if (payment.events.some((entry) => entry.providerEventDigest === event.eventDigest) || payment.status === "FAILED") return { payment, duplicate: true };
+    if (PAYMENT_TERMINAL.has(payment.status)) {
+      await reconcile({ session, category: "out_of_order_terminal_event", payment, observed: { ...paymentState(payment), paymentStatus: "FAILED" }, providerEventId, actor: payment.owner });
+      return { payment, reconciled: true };
+    }
+    payment.events.push({ eventId: crypto.randomUUID(), providerEventDigest: event.eventDigest, eventType: event.eventType, previousStatus: payment.status, resultingStatus: "FAILED", providerTimestamp: event.providerTimestamp, receivedAt: event.receivedAt, normalizedMetadata: { amount: payment.amount, currency: payment.currency, subjectType: payment.subjectType, quoteVersion: payment.quoteVersion }, payloadDigest: digest(rawBody) });
+    payment.status = "FAILED";
+    await payment.save({ session });
+    if (payment.subjectType === "order") await releaseOrderReservations(payment.subjectId, payment.owner, "payment_failed", session);
+    await writeAuditLog(payment.owner, "PAYMENT_FAILED", "Payment", payment._id, { subjectType: payment.subjectType, amount: payment.amount, currency: payment.currency }, session);
+    return { payment, failed: true };
+  });
+};
+
+/**
+ * Refund provider callbacks arrive only after the provider boundary has
+ * verified their signature. The callback supplies an opaque refund ID in the
+ * provider metadata; transition functions still compare every persisted
+ * binding and never perform outbound provider I/O.
+ */
+export const processVerifiedRefundEvent = async ({ refundId, providerReference, providerEventId, eventType, normalized }) => {
+  if (!validObjectId(refundId)) {
+    return runTransaction(async (session) => {
+      const event = providerEvent({ providerEventId, eventType, providerTimestamp: normalized?.providerTimestamp, amount: normalized?.amount, currency: normalized?.currency });
+      return { reconciled: true, reconciliation: await reconcileUnknownRefund({ session, event, providerReference, normalized }) };
+    });
+  }
+  if (eventType === "refund.pending") {
+    return markRefundProviderPending({ refundId, providerEventId, providerReference, normalized });
+  }
+  if (["refund.processed", "refund.success"].includes(eventType)) {
+    return settleRefundSuccess({ refundId, providerEventId, providerReference, normalized });
+  }
+  if (["refund.failed", "refund.rejected"].includes(eventType)) {
+    return settleRefundFailure({
+      refundId,
+      providerEventId,
+      providerReference,
+      normalized,
+      failureCategory: normalized?.failureCategory || "provider_error",
+    });
+  }
+  return { ignored: true };
 };
 
 export const reserveRefund = async ({ paymentId, requestedBy, amount, currency, reason, idempotencyKey }) => {

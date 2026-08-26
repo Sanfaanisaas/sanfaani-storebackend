@@ -5,7 +5,10 @@ import {
   checkEligiblePickup, 
   verifyBankTransfer,
   generateReceiptPDF,
-  getOrderQueue
+  getOrderQueue,
+  cancelOrder,
+  dispatchOrder,
+  collectOrder,
 } from "../controllers/orderController.js";
 import { authenticate, authorize } from "../middleware/authenticate.js";
 import { validate } from "../middleware/validate.js";
@@ -95,6 +98,44 @@ router.post("/:id/upload-receipt", authenticate, upload.single("receipt"), uploa
  *         description: PDF receipt streamed
  */
 router.get("/:id/receipt", authenticate, generateReceiptPDF);
+
+/**
+ * @swagger
+ * /orders/{id}/cancel:
+ *   patch:
+ *     summary: Cancel an unfulfilled order and release eligible inventory
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Idempotently cancelled order }
+ *       404: { description: Non-enumerating unavailable customer order }
+ *       409: { description: Fulfilled order cannot be cancelled }
+ */
+router.patch("/:id/cancel", authenticate, cancelOrder);
+/**
+ * @swagger
+ * /orders/{id}/dispatch:
+ *   patch:
+ *     summary: Dispatch a paid, allocated order
+ *     description: Store operator, operations manager, or super administrator only. Requires a verified paid order and allocated inventory; duplicate dispatch is idempotent.
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Order dispatched and allocation consumed }
+ *       403: { description: Fulfilment role required }
+ *       409: { description: Payment or allocation gate failed }
+ */
+router.patch("/:id/dispatch", authenticate, authorize(USER_ROLES.STORE_OPERATOR, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN), dispatchOrder);
+/**
+ * @swagger
+ * /orders/{id}/collect:
+ *   patch:
+ *     summary: Complete collection of a paid, allocated order
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Order collection completed }
+ *       403: { description: Fulfilment role required }
+ *       409: { description: Payment or allocation gate failed }
+ */
+router.patch("/:id/collect", authenticate, authorize(USER_ROLES.STORE_OPERATOR, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN), collectOrder);
 
 router.get(
   "/queue",

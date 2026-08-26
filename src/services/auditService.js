@@ -2,7 +2,7 @@ import AuditLog from "../models/AuditLog.js";
 
 let testHooks = {};
 
-const financialMetadata = {
+const allowlistedMetadata = {
   PAYMENT_INITIATED: ["subjectType", "amount", "currency", "purpose", "quoteVersion"],
   PAYMENT_SETTLED: ["subjectType", "amount", "currency"],
   PAYMENT_SETTLEMENT_DUPLICATE: ["eventDigest"],
@@ -14,10 +14,16 @@ const financialMetadata = {
   REFUND_CANCELLED: ["refundStatus"],
   RECONCILIATION_CREATED: ["category", "eventDigest", "occurrenceCount"],
   RECONCILIATION_REOBSERVED: ["category", "eventDigest", "occurrenceCount"],
+  EVIDENCE_UPLOADED: ["subjectType", "purpose", "size"],
+  EVIDENCE_DOWNLOAD_AUTHORIZED: ["subjectType", "purpose"],
+  EVIDENCE_DELETE_REQUESTED: ["subjectType", "purpose"],
+  EVIDENCE_DELETED: ["subjectType", "purpose"],
+  EVIDENCE_CLEANUP_COMPLETED: ["taskType", "attempts"],
+  EVIDENCE_CLEANUP_EXHAUSTED: ["taskType", "attempts"],
 };
 
 const sanitize = (action, metadata) => {
-  const allowed = financialMetadata[action];
+  const allowed = allowlistedMetadata[action];
   if (!allowed) return metadata;
   return Object.fromEntries(allowed.flatMap((key) => (
     Object.prototype.hasOwnProperty.call(metadata, key) ? [[key, metadata[key]]] : []

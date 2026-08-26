@@ -1,7 +1,7 @@
 import { catchAsync } from "../utils/catchAsync.js";
 import AppError from "../utils/AppError.js";
 import { getPaystackProvider } from "../services/paystackProvider.js";
-import { createPaymentAttempt, processVerifiedPaymentEvent } from "../services/paymentTransitionService.js";
+import { createPaymentAttempt, processVerifiedPaymentEvent, processVerifiedPaymentFailure, processVerifiedRefundEvent } from "../services/paymentTransitionService.js";
 
 const normalizedWebhook = (event) => {
   const data = event?.data && typeof event.data === "object" ? event.data : {};
@@ -20,7 +20,9 @@ const normalizedWebhook = (event) => {
         owner: metadata.owner,
         purpose: metadata.purpose,
         quoteVersion: metadata.quoteVersion,
+        refundId: metadata.refundId,
       },
+      failureCategory: typeof data.failure_reason === "string" ? data.failure_reason.slice(0, 64).toLowerCase() : undefined,
     },
   };
 };
@@ -55,6 +57,18 @@ export const handleWebhook = catchAsync(async (req, res) => {
   if (event?.event === "charge.success") {
     const callback = normalizedWebhook(event);
     await processVerifiedPaymentEvent({ provider: "paystack", providerReference: callback.providerReference, providerEventId: callback.providerEventId, eventType: callback.eventType, normalized: callback.normalized, rawBody: req.body });
+  } else if (event?.event === "charge.failed") {
+    const callback = normalizedWebhook(event);
+    await processVerifiedPaymentFailure({ provider: "paystack", providerReference: callback.providerReference, providerEventId: callback.providerEventId, eventType: callback.eventType, normalized: callback.normalized, rawBody: req.body });
+  } else if (["refund.pending", "refund.processed", "refund.success", "refund.failed", "refund.rejected"].includes(event?.event)) {
+    const callback = normalizedWebhook(event);
+    await processVerifiedRefundEvent({
+      refundId: callback.normalized.metadata.refundId,
+      providerReference: callback.providerReference,
+      providerEventId: callback.providerEventId,
+      eventType: callback.eventType,
+      normalized: callback.normalized,
+    });
   }
   return res.sendStatus(200);
 });
