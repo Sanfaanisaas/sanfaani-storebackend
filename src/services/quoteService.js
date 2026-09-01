@@ -5,6 +5,7 @@ import AppError from "../utils/AppError.js";
 import { QUOTE_ACTIONABLE_STATUSES, QUOTE_STATUS, REPAIR_STATUS, USER_ROLES } from "../utils/constants.js";
 import { writeAuditLog } from "./auditService.js";
 import { assertRepairFinanceGate } from "./repairFinanceService.js";
+import { createCustomerNotification } from "./notificationService.js";
 
 const QUOTE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const ADMIN_DECISION_ROLES = new Set([USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN]);
@@ -57,6 +58,7 @@ export const createNewQuoteVersion = async (repairId, lineItems, userId, { estim
         createdBy: userId,
       }], { session }))[0];
       await writeAuditLog(userId, "QUOTE_SENT", "Quote", quote._id, { repairId: repairId.toString(), version: quote.version, totalAmount: quote.totalAmount }, session);
+      await createCustomerNotification({ recipient: repair.customer, type: "repair_quote_issued", title: "Repair quote ready", safePreview: "A repair quote is ready for your review.", resourceType: "repair", resourceId: repair._id, mandatory: true, eventKey: "repair-quote:" + quote._id, session });
     });
     return quote;
   } finally {

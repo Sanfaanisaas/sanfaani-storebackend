@@ -5,6 +5,10 @@ import Order from "../models/Order.js";
 import PurchaseOrder from "../models/PurchaseOrder.js";
 import Repair from "../models/Repair.js";
 import ReturnRequest from "../models/ReturnRequest.js";
+import SupportTicket from "../models/SupportTicket.js";
+import ProcurementRequest from "../models/ProcurementRequest.js";
+import ProcurementQuotation from "../models/ProcurementQuotation.js";
+import ServiceRequest from "../models/ServiceRequest.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import AppError from "../utils/AppError.js";
 import { USER_ROLES } from "../utils/constants.js";
@@ -20,6 +24,10 @@ const DOMAIN_CONFIG = Object.freeze({
   repair: { Model: Repair, ownerField: "customer", purposes: new Set(["repair_intake", "custody", "qc", "handover", "warranty"]), customerPurposes: new Set(["repair_intake", "warranty"]), staff: new Set([USER_ROLES.STORE_OPERATOR, USER_ROLES.TECHNICIAN, USER_ROLES.QC_OFFICER, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN]) },
   claim: { Model: Claim, ownerField: "submittedBy", purposes: new Set(["warranty"]), customerPurposes: new Set(["warranty"]), staff: new Set([USER_ROLES.SUPPORT_OFFICER, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN]) },
   return_request: { Model: ReturnRequest, ownerField: "owner", purposes: new Set(["return"]), customerPurposes: new Set(["return"]), staff: new Set([USER_ROLES.STORE_OPERATOR, USER_ROLES.SUPPORT_OFFICER, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN]) },
+  support_ticket: { Model: SupportTicket, ownerField: "customer", purposes: new Set(["support"]), customerPurposes: new Set(["support"]), staff: new Set([USER_ROLES.SUPPORT_OFFICER, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN]) },
+  procurement_request: { Model: ProcurementRequest, ownerField: "customer", purposes: new Set(["procurement"]), customerPurposes: new Set(["procurement"]), staff: new Set([USER_ROLES.SALES_ADVISOR, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN]) },
+  procurement_quotation: { Model: ProcurementQuotation, ownerField: "customer", purposes: new Set(["procurement"]), customerPurposes: new Set(), staff: new Set([USER_ROLES.SALES_ADVISOR, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN]) },
+  service_request: { Model: ServiceRequest, ownerField: "customer", purposes: new Set(["service"]), customerPurposes: new Set(["service"]), staff: new Set([USER_ROLES.TECHNICIAN, USER_ROLES.SALES_ADVISOR, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN]) },
   purchase_order: { Model: PurchaseOrder, ownerField: "createdBy", purposes: new Set(["procurement"]), customerPurposes: new Set(), staff: new Set([USER_ROLES.INVENTORY_OFFICER, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN]) },
 });
 

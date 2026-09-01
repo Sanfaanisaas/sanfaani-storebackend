@@ -1,12 +1,10 @@
 import mongoose from "mongoose";
 
 const schema = new mongoose.Schema({
-  // Evidence remains attached to a single domain aggregate.  The object key is
-  // deliberately separate and never contains this identifier or a customer value.
-  subjectType: { type: String, enum: ["order", "repair", "claim", "return_request", "purchase_order"], required: true, index: true },
+  subjectType: { type: String, enum: ["order", "repair", "claim", "return_request", "purchase_order", "support_ticket", "procurement_request", "procurement_quotation", "service_request"], required: true, index: true },
   subject: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
   owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
-  purpose: { type: String, enum: ["order_receipt", "repair_intake", "custody", "qc", "handover", "warranty", "return", "procurement"], required: true, maxlength: 32 },
+  purpose: { type: String, enum: ["order_receipt", "repair_intake", "custody", "qc", "handover", "warranty", "return", "procurement", "support", "service"], required: true, maxlength: 32 },
   displayName: { type: String, required: true, maxlength: 160 },
   objectKey: { type: String, required: true, unique: true, select: false },
   checksum: { type: String, required: true, match: /^[a-f0-9]{64}$/ },

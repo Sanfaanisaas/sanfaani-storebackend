@@ -1,0 +1,8 @@
+import { catchAsync } from "../utils/catchAsync.js";
+import { getPreferences, listNotifications, markAllRead, markRead, unreadCount, updatePreferences } from "../services/notificationService.js";
+export const getNotifications = catchAsync(async (req, res) => res.json({ success: true, data: await listNotifications({ recipient: req.user.id, query: req.query }) }));
+export const getUnreadCount = catchAsync(async (req, res) => res.json({ success: true, data: { unreadCount: await unreadCount(req.user.id) } }));
+export const markNotificationRead = catchAsync(async (req, res) => res.json({ success: true, data: await markRead({ recipient: req.user.id, id: req.params.id }) }));
+export const markAllNotificationsRead = catchAsync(async (req, res) => res.json({ success: true, data: await markAllRead({ recipient: req.user.id }) }));
+export const getNotificationPreferences = catchAsync(async (req, res) => res.json({ success: true, data: await getPreferences(req.user.id) }));
+export const patchNotificationPreferences = catchAsync(async (req, res) => res.json({ success: true, data: await updatePreferences({ recipient: req.user.id, input: req.body }) }));

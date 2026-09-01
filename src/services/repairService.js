@@ -1,6 +1,7 @@
 import Repair from "../models/Repair.js";
 import Warranty from "../models/Warranty.js";
 import Quote from "../models/Quote.js";
+import Payment from "../models/Payment.js";
 import AppError from "../utils/AppError.js";
 import { REPAIR_STATUS, WARRANTY_PERIOD_DAYS, QUOTE_STATUS } from "../utils/constants.js";
 import mongoose from "mongoose";
@@ -217,25 +218,23 @@ export const handoverRepair = async (repairId, actorId, actorRole, handover = {}
   }
 };
 
+const repairPaymentProjection = async (repair, quote) => {
+  const required = Number.isSafeInteger(repair.financial?.requiredDepositAmount) ? repair.financial.requiredDepositAmount : 0;
+  const currency = repair.financial?.depositCurrency || "NGN";
+  if (required <= 0) return { depositRequirement: { required: false, amount: 0, currency, dueBeforeWork: false }, paymentState: { status: "not_required", confirmedAmount: 0, remainingAmount: 0 } };
+  const payments = await Payment.find({ subjectType: "repair", subjectId: repair._id, owner: repair.customer, quoteVersion: quote.version }).select("status netPaidAmount capturedAmount").lean();
+  const confirmedAmount = payments.filter((payment) => ["SUCCEEDED", "PARTIALLY_REFUNDED", "REFUNDED"].includes(payment.status)).reduce((sum, payment) => sum + Math.max(0, payment.netPaidAmount || payment.capturedAmount || 0), 0);
+  const anyFailed = payments.some((payment) => payment.status === "FAILED" || payment.status === "CANCELLED");
+  const status = confirmedAmount >= required ? "confirmed" : confirmedAmount > 0 ? "partially_confirmed" : anyFailed ? "failed" : "pending";
+  return { depositRequirement: { required: true, amount: required, currency, dueBeforeWork: true }, paymentState: { status, confirmedAmount, remainingAmount: Math.max(0, required - confirmedAmount) } };
+};
+
 export const toPublicRepair = async (repair) => {
-  const quote = await Quote.findOne({
-    repair: repair._id,
-    status: { $in: [QUOTE_STATUS.SENT, QUOTE_STATUS.VIEWED, QUOTE_STATUS.ACCEPTED, QUOTE_STATUS.DECLINED, QUOTE_STATUS.EXPIRED] },
-  }).sort({ version: -1 }).lean();
-  return {
-    id: repair._id.toString(),
-    status: repair.status,
-    nextAction: publicNextAction(repair.status),
-    updatedAt: repair.updatedAt,
-    quote: quote ? {
-      id: quote._id.toString(),
-      version: quote.version,
-      lineItems: quote.lineItems.map(({ description, amount }) => ({ description, amount })),
-      totalAmount: quote.totalAmount,
-      estimatedDays: quote.estimatedDays,
-      status: quote.status,
-    } : null,
-  };
+  const quote = await Quote.findOne({ repair: repair._id, status: { $in: [QUOTE_STATUS.SENT, QUOTE_STATUS.VIEWED, QUOTE_STATUS.ACCEPTED, QUOTE_STATUS.DECLINED, QUOTE_STATUS.EXPIRED, QUOTE_STATUS.SUPERSEDED] } }).sort({ version: -1 }).lean();
+  const supersededBy = quote?.status === QUOTE_STATUS.SUPERSEDED ? await Quote.findOne({ repair: repair._id, version: { $gt: quote.version }, status: { $ne: QUOTE_STATUS.DRAFT } }).sort({ version: 1 }).select("version").lean() : null;
+  const projectedQuoteStatus = quote && quote.expiresAt && quote.expiresAt <= new Date() && ["SENT", "VIEWED"].includes(quote.status) ? QUOTE_STATUS.EXPIRED : quote?.status;
+  const financial = quote ? await repairPaymentProjection(repair, quote) : null;
+  return { id: repair._id.toString(), status: repair.status, nextAction: publicNextAction(repair.status), updatedAt: repair.updatedAt, quote: quote ? { id: quote._id.toString(), version: quote.version, lineItems: quote.lineItems.map(({ description, amount }) => ({ description, amount })), totalAmount: quote.totalAmount, estimatedDays: quote.estimatedDays, status: projectedQuoteStatus, issuedAt: quote.createdAt, expiresAt: quote.expiresAt, superseded: quote.status === QUOTE_STATUS.SUPERSEDED || (!quote.isActionable && quote.status !== QUOTE_STATUS.ACCEPTED && quote.status !== QUOTE_STATUS.DECLINED), supersededByVersion: supersededBy?.version || null, ...financial } : null };
 };
 
 export const getRepairStatus = async (repairId, actor, rawTrackingToken) => {

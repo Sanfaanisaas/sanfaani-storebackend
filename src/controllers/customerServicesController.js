@@ -1,0 +1,15 @@
+import { catchAsync } from "../utils/catchAsync.js";
+import * as services from "../services/customerServicesService.js";
+export const getServicePolicy = catchAsync(async (req, res) => res.json({ success: true, data: services.getPolicy() }));
+export const createCustomerServiceRequest = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await services.createServiceRequest({ customer: req.user.id, input: req.body, idempotencyKey: req.get("Idempotency-Key") }) }));
+export const listCustomerServiceRequests = catchAsync(async (req, res) => res.json({ success: true, data: await services.listServiceRequests({ customer: req.user.id, query: req.query }) }));
+export const getCustomerServiceRequest = catchAsync(async (req, res) => res.json({ success: true, data: await services.getServiceRequest({ customer: req.user.id, id: req.params.id }) }));
+export const listCustomerServiceQuotes = catchAsync(async (req, res) => res.json({ success: true, data: await services.listServiceQuotations({ customer: req.user.id, requestId: req.params.id }) }));
+export const getCustomerServiceQuote = catchAsync(async (req, res) => res.json({ success: true, data: await services.getServiceQuote({ customer: req.user.id, id: req.params.id }) }));
+export const decideCustomerServiceQuote = (decision) => catchAsync(async (req, res) => res.json({ success: true, data: await services.decideServiceQuote({ customer: req.user.id, id: req.params.id, decision, version: req.body.version, idempotencyKey: req.get("Idempotency-Key") }) }));
+export const recordStaffAssessment = catchAsync(async (req, res) => res.json({ success: true, data: await services.recordAssessment({ actor: req.user.id, requestId: req.params.id, assessment: req.body }) }));
+export const createStaffServiceQuotation = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await services.createStaffServiceQuote({ actor: req.user.id, requestId: req.params.id, input: req.body }) }));
+export const listCustomerMaintenancePlans = catchAsync(async (req, res) => res.json({ success: true, data: await services.listMaintenancePlans({ customer: req.user.id, query: req.query }) }));
+export const getCustomerMaintenancePlan = catchAsync(async (req, res) => res.json({ success: true, data: await services.getMaintenancePlan({ customer: req.user.id, id: req.params.id }) }));
+export const listCustomerServiceHistory = catchAsync(async (req, res) => res.json({ success: true, data: await services.listServiceHistory({ customer: req.user.id, query: req.query }) }));
+export const getCustomerServiceHistory = catchAsync(async (req, res) => res.json({ success: true, data: await services.getServiceHistory({ customer: req.user.id, id: req.params.id }) }));

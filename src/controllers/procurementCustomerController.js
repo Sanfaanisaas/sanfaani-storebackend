@@ -1,0 +1,11 @@
+import { catchAsync } from "../utils/catchAsync.js";
+import * as procurement from "../services/procurementCustomerService.js";
+export const createCustomerProcurementRequest = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await procurement.createRequest({ owner: req.user.id, input: req.body, idempotencyKey: req.get("Idempotency-Key") }) }));
+export const listCustomerProcurementRequests = catchAsync(async (req, res) => res.json({ success: true, data: await procurement.listRequests({ owner: req.user.id, query: req.query }) }));
+export const getCustomerProcurementRequest = catchAsync(async (req, res) => res.json({ success: true, data: await procurement.getRequest({ owner: req.user.id, id: req.params.id }) }));
+export const patchCustomerProcurementRequest = catchAsync(async (req, res) => res.json({ success: true, data: await procurement.updateRequest({ owner: req.user.id, id: req.params.id, input: req.body }) }));
+export const respondCustomerProcurementClarification = catchAsync(async (req, res) => res.json({ success: true, data: await procurement.respondClarification({ owner: req.user.id, id: req.params.id, clarificationId: req.params.clarificationId, response: req.body.response }) }));
+export const listCustomerProcurementQuotations = catchAsync(async (req, res) => res.json({ success: true, data: await procurement.listQuotations({ owner: req.user.id, requestId: req.params.id }) }));
+export const getCustomerProcurementQuotation = catchAsync(async (req, res) => res.json({ success: true, data: await procurement.getQuotation({ owner: req.user.id, id: req.params.id }) }));
+export const decideCustomerProcurementQuotation = (decision) => catchAsync(async (req, res) => res.json({ success: true, data: await procurement.decideQuotation({ owner: req.user.id, id: req.params.id, decision, version: req.body.version, idempotencyKey: req.get("Idempotency-Key") }) }));
+export const createStaffCustomerProcurementQuotation = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await procurement.createStaffQuotation({ actor: req.user.id, requestId: req.params.id, input: req.body }) }));

@@ -1,7 +1,17 @@
 import { Router } from "express";
 import { optionalAccessAuthentication } from "../middleware/optionalAuthenticate.js";
+import { authenticate, authorize } from "../middleware/authenticate.js";
+import { customerMutationLimiter } from "../middleware/rateLimiter.js";
 import { createGuidance, resumeGuidance } from "../controllers/guidanceController.js";
+import { catchAsync } from "../utils/catchAsync.js";
+import { archiveGuidance, createGuidanceEscalation, getGuidanceEscalation, listOwnedGuidance, recordGuidanceAdvisorResponse } from "../services/guidanceService.js";
+import { USER_ROLES } from "../utils/constants.js";
 const router = Router();
-router.post("/", optionalAccessAuthentication, createGuidance);
+router.get("/mine", authenticate, catchAsync(async (req, res) => res.json({ success: true, data: await listOwnedGuidance({ owner: req.user.id, query: req.query }) })));
+router.post("/", optionalAccessAuthentication, customerMutationLimiter, createGuidance);
+router.get("/:id/escalations/current", authenticate, catchAsync(async (req, res) => res.json({ success: true, data: await getGuidanceEscalation({ owner: req.user.id, id: req.params.id }) })));
+router.post("/:id/escalations", authenticate, customerMutationLimiter, catchAsync(async (req, res) => res.status(201).json({ success: true, data: await createGuidanceEscalation({ owner: req.user.id, id: req.params.id, question: req.body.question }) })));
+router.patch("/:id/archive", authenticate, customerMutationLimiter, catchAsync(async (req, res) => res.json({ success: true, data: await archiveGuidance({ owner: req.user.id, id: req.params.id }) })));
+router.post("/escalations/:id/respond", authenticate, authorize(USER_ROLES.SALES_ADVISOR, USER_ROLES.SUPPORT_OFFICER, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN), catchAsync(async (req, res) => res.json({ success: true, data: await recordGuidanceAdvisorResponse({ advisor: req.user.id, id: req.params.id, response: req.body.response, displayName: req.body.displayName || null }) })));
 router.get("/:id", optionalAccessAuthentication, resumeGuidance);
 export default router;

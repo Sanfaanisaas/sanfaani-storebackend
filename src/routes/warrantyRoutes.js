@@ -1,9 +1,11 @@
 import { Router } from "express";
 import { authenticate } from "../middleware/authenticate.js";
+import { customerMutationLimiter } from "../middleware/rateLimiter.js";
 import { createClaim } from "../controllers/claimController.js";
-
+import { getMyWarranties, getWarrantyDetail, getWarrantyEligibility } from "../controllers/warrantyController.js";
 const router = Router();
-
-router.post("/:id/claims", authenticate, createClaim);
-
+router.get("/mine", authenticate, getMyWarranties);
+router.get("/:id/eligibility", authenticate, getWarrantyEligibility);
+router.get("/:id", authenticate, getWarrantyDetail);
+router.post("/:id/claims", authenticate, customerMutationLimiter, createClaim);
 export default router;

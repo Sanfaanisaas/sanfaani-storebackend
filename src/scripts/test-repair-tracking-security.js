@@ -121,6 +121,9 @@ test("tracking quote projection is a strict public allowlist", async () => {
   await Quote.create({ repair: created.repair._id, version: 1, lineItems: [{ description: "Battery", amount: 1234 }], totalAmount: 1234, estimatedDays: 2, status: "SENT", isActionable: true, expiresAt: new Date(Date.now() + 60000), createdBy: id() });
   const response = await request(app).get(`/api/repairs/${created.repair._id}/track`).set(auth(owner));
   assert.equal(response.status, 200);
-  assert.deepEqual(Object.keys(response.body.data.quote).sort(), ["estimatedDays", "id", "lineItems", "status", "totalAmount", "version"]);
-  assert.equal(JSON.stringify(response.body.data.quote).includes("expiresAt"), false);
+  assert.deepEqual(Object.keys(response.body.data.quote).sort(), ["depositRequirement", "estimatedDays", "expiresAt", "id", "issuedAt", "lineItems", "paymentState", "status", "superseded", "supersededByVersion", "totalAmount", "version"]);
+  assert.ok(response.body.data.quote.expiresAt);
+  assert.deepEqual(response.body.data.quote.depositRequirement, { required: false, amount: 0, currency: "NGN", dueBeforeWork: false });
+  assert.deepEqual(response.body.data.quote.paymentState, { status: "not_required", confirmedAmount: 0, remainingAmount: 0 });
+  assert.equal(JSON.stringify(response.body.data.quote).includes("providerReference"), false);
 });

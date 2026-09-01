@@ -27,6 +27,9 @@ import evidenceRoutes from "./routes/evidenceRoutes.js";
 import procurementRoutes from "./routes/procurementRoutes.js";
 import guidanceRoutes from "./routes/guidanceRoutes.js";
 import returnRoutes from "./routes/returnRoutes.js";
+import notificationRoutes, { preferencesRouter } from "./routes/notificationRoutes.js";
+import customerServicesRoutes from "./routes/customerServicesRoutes.js";
+import maintenancePlanRoutes from "./routes/maintenancePlanRoutes.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -81,6 +84,10 @@ app.use("/api/inventory", inventoryRoutes);
 app.use("/api/warranties", warrantyRoutes);
 app.use("/api/claims", claimRoutes);
 app.use("/api/support-tickets", supportTicketRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/notification-preferences", preferencesRouter);
+app.use("/api/services", customerServicesRoutes);
+app.use("/api/maintenance-plans", maintenancePlanRoutes);
 
 // Handle unhandled routes
 app.all("/*path", (req, res, next) => {

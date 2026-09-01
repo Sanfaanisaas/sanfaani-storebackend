@@ -49,7 +49,7 @@ const options = {
         PublicQuoteTracking: {
           type: "object",
           additionalProperties: false,
-          required: ["id", "version", "lineItems", "totalAmount", "estimatedDays", "status"],
+          required: ["id", "version", "lineItems", "totalAmount", "estimatedDays", "status", "issuedAt", "expiresAt", "superseded", "depositRequirement", "paymentState"],
           properties: {
             id: { type: "string" },
             version: { type: "integer", minimum: 1 },
@@ -67,7 +67,13 @@ const options = {
             },
             totalAmount: { type: "integer", minimum: 0, description: "Minor currency units" },
             estimatedDays: { type: "integer", minimum: 0 },
-            status: { type: "string", enum: ["SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED"] },
+            status: { type: "string", enum: ["SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED", "SUPERSEDED"] },
+            issuedAt: { type: "string", format: "date-time" },
+            expiresAt: { type: "string", format: "date-time", nullable: true },
+            superseded: { type: "boolean" },
+            supersededByVersion: { type: ["integer", "null"], minimum: 1 },
+            depositRequirement: { type: "object", additionalProperties: false, required: ["required", "amount", "currency", "dueBeforeWork"], properties: { required: { type: "boolean" }, amount: { type: "integer", minimum: 0 }, currency: { type: "string" }, dueBeforeWork: { type: "boolean" } } },
+            paymentState: { type: "object", additionalProperties: false, required: ["status", "confirmedAmount", "remainingAmount"], properties: { status: { type: "string", enum: ["not_required", "pending", "partially_confirmed", "confirmed", "failed"] }, confirmedAmount: { type: "integer", minimum: 0 }, remainingAmount: { type: "integer", minimum: 0 } } },
           },
         },
         PublicRepairTracking: {

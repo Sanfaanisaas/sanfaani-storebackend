@@ -1,0 +1,13 @@
+import { Router } from "express";
+import { authenticate } from "../middleware/authenticate.js";
+import { notificationLimiter } from "../middleware/rateLimiter.js";
+import { getNotifications, getUnreadCount, markAllNotificationsRead, markNotificationRead, getNotificationPreferences, patchNotificationPreferences } from "../controllers/notificationController.js";
+const router = Router();
+router.get("/", authenticate, notificationLimiter, getNotifications);
+router.get("/unread-count", authenticate, notificationLimiter, getUnreadCount);
+router.patch("/:id/read", authenticate, notificationLimiter, markNotificationRead);
+router.post("/read-all", authenticate, notificationLimiter, markAllNotificationsRead);
+export const preferencesRouter = Router();
+preferencesRouter.get("/", authenticate, notificationLimiter, getNotificationPreferences);
+preferencesRouter.patch("/", authenticate, notificationLimiter, patchNotificationPreferences);
+export default router;
