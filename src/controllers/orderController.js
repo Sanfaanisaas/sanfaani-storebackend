@@ -43,6 +43,21 @@ export const getMyOrders = catchAsync(async (req, res) => {
 });
 
 /**
+ * Get authenticated user's specific order by ID (Owner-scoped, non-enumerating)
+ */
+export const getOrderById = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(404).json({ success: false, message: "Order not found" });
+  }
+  const order = await Order.findOne({ _id: id, userId: req.user.id });
+  if (!order) {
+    return res.status(404).json({ success: false, message: "Order not found" });
+  }
+  res.status(200).json({ success: true, data: order.toPublicOrder() });
+});
+
+/**
  * Upload manual payment receipt
  */
 export const uploadReceipt = catchAsync(async (req, res) => {
