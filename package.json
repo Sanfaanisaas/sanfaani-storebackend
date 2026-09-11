@@ -20,6 +20,12 @@
     "test:repair-gates": "node --test src/scripts/test-repair-gates.js",
     "test:fulfilment": "node --test src/scripts/test-fulfilment.js",
     "test:evidence-storage": "node --test src/scripts/test-evidence-storage.js",
+    "test:customer-warranties": "node --test src/scripts/test-customer-warranties.js",
+    "test:customer-returns": "node --test src/scripts/test-customer-returns.js",
+    "test:support-notifications": "node --test src/scripts/test-support-notifications.js",
+    "test:customer-guidance": "node --test src/scripts/test-customer-guidance.js",
+    "test:customer-procurement": "node --test src/scripts/test-customer-procurement.js",
+    "test:customer-services": "node --test src/scripts/test-customer-services.js",
     "cleanup:evidence": "node src/scripts/cleanup-orphaned-evidence.js"
   },
   "keywords": [],

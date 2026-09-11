@@ -60,7 +60,7 @@ async function testRoute(route, token = null) {
 }
 
 async function runSweep() {
-  console.log(`\n🚀 Starting Negative Auth Sweep against ${API_URL}\n`);
+  console.log(`\nStarting Negative Auth Sweep against ${API_URL}\n`);
   console.log("| Route | Method | No Token (401) | Expired Token (401) | Wrong Role (403) |");
   console.log("|-------|--------|----------------|--------------------|------------------|");
 
@@ -79,7 +79,7 @@ async function runSweep() {
     console.log(`| ${route.path} | ${route.method} | ${noTokenStatus} | ${expiredTokenStatus} | ${wrongRoleStatus} |`);
   }
   
-  console.log("\n✅ Sweep completed.\n");
+  console.log("\nSweep completed.\n");
 }
 
 runSweep();

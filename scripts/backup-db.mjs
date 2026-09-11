@@ -9,7 +9,7 @@ const MONGO_URI = process.env.MONGO_URI;
 const BACKUP_PATH = process.env.BACKUP_PATH || "./backups";
 
 if (!MONGO_URI) {
-  console.error("❌ MONGO_URI is not defined in environment variables.");
+  console.error("MONGO_URI is not defined in environment variables.");
   process.exit(1);
 }
 
@@ -21,19 +21,19 @@ const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
 const archiveName = `backup-${timestamp}.gz`;
 const outputPath = path.join(BACKUP_PATH, archiveName);
 
-console.log(`🚀 Starting backup to ${outputPath}...`);
+console.log(`Starting backup to ${outputPath}...`);
 
 const command = `mongodump --uri="${MONGO_URI}" --archive="${outputPath}" --gzip`;
 
 exec(command, (error, stdout, stderr) => {
   if (error) {
-    console.error(`❌ Backup failed: ${error.message}`);
+    console.error(`Backup failed: ${error.message}`);
     return;
   }
   if (stderr && !stderr.includes("done dumping")) {
-    console.warn(`⚠️  mongodump stderr: ${stderr}`);
+    console.warn(`mongodump stderr: ${stderr}`);
   }
-  console.log(`✅ Backup completed successfully: ${archiveName}`);
+  console.log(`Backup completed successfully: ${archiveName}`);
   
   // Optional: Add logic here to push the archive to external storage (S3, Cloud Storage, etc.)
 });

@@ -31,8 +31,11 @@ const ClaimSchema = new Schema({
   remedy: { type: remedySchema, default: () => ({}) },
   customerSafeReason: { type: String, trim: true, maxlength: 1000, default: null },
   resolutionNotes: { type: String, select: false, maxlength: 2000 },
+  idempotencyKey: { type: String, trim: true, minlength: 1, maxlength: 128, immutable: true },
+  idempotencyFingerprint: { type: String, match: /^[a-f0-9]{64}$/, immutable: true },
 }, { timestamps: true });
 
 ClaimSchema.index({ warranty: 1, active: 1 }, { unique: true, partialFilterExpression: { active: true }, name: "one_active_claim_per_warranty" });
+ClaimSchema.index({ submittedBy: 1, idempotencyKey: 1 }, { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } }, name: "customer_claim_idempotency" });
 ClaimSchema.set("toJSON", { transform: (doc, ret) => { delete ret.resolutionNotes; return ret; } });
 export default mongoose.model("Claim", ClaimSchema);

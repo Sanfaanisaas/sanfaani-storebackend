@@ -18,9 +18,19 @@ export function validate(schema, source = "body") {
     }
 
     if (source === "query") {
-      req.query = result.data;
+      if (req.query && typeof req.query === "object") {
+        for (const key of Object.keys(req.query)) {
+          delete req.query[key];
+        }
+        Object.assign(req.query, result.data);
+      }
     } else if (source === "params") {
-      req.params = result.data;
+      if (req.params && typeof req.params === "object") {
+        for (const key of Object.keys(req.params)) {
+          delete req.params[key];
+        }
+        Object.assign(req.params, result.data);
+      }
     } else {
       req.body = result.data;
     }

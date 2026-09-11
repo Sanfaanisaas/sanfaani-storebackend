@@ -1,6 +1,7 @@
 import Notification, { CUSTOMER_NOTIFICATION_RESOURCE_TYPES } from "../models/Notification.js";
 import NotificationPreference, { OPTIONAL_NOTIFICATION_CATEGORIES } from "../models/NotificationPreference.js";
 import { idText, pageInput, pagination, unavailable } from "./customerDomainService.js";
+import AppError from "../utils/AppError.js";
 import { writeAuditLog } from "./auditService.js";
 
 const dto = (item) => ({
@@ -43,7 +44,8 @@ export const listNotifications = async ({ recipient, query }) => {
 export const unreadCount = async (recipient) => Notification.countDocuments({ recipient, readAt: null, $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }] });
 
 export const markRead = async ({ recipient, id }) => {
-  const notification = await Notification.findOneAndUpdate({ _id: id, recipient }, { $setOnInsert: {}, $set: { readAt: new Date() } }, { returnDocument: "after" });
+  if (!idText(id).match(/^[a-fA-F0-9]{24}$/)) throw unavailable("Notification");
+  const notification = await Notification.findOneAndUpdate({ _id: id, recipient }, { $set: { readAt: new Date() } }, { returnDocument: "after" });
   if (!notification) throw unavailable("Notification");
   return dto(notification);
 };
@@ -70,7 +72,9 @@ export const updatePreferences = async ({ recipient, input }) => {
   const allowed = new Set(OPTIONAL_NOTIFICATION_CATEGORIES);
   const updates = {};
   for (const [key, value] of Object.entries(input?.optionalCategories || {})) {
-    if (!allowed.has(key) || typeof value !== "boolean") throw new Error("Invalid optional notification preference");
+    if (!allowed.has(key) || typeof value !== "boolean") {
+      throw new AppError("Invalid optional notification preference", 400, [{ code: "preference_invalid", message: "Optional category and value must be valid" }]);
+    }
     updates[`optionalCategories.${key}`] = value;
   }
   if (Object.keys(updates).length) await NotificationPreference.updateOne({ recipient }, { $setOnInsert: { recipient }, $set: updates }, { upsert: true, setDefaultsOnInsert: true });

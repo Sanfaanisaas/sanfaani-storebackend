@@ -51,31 +51,31 @@ ValidationError: Custom keyGenerator appears to use request IP without calling t
   code: 'ERR_ERL_KEY_GEN_IPV6',
   help: 'https://express-rate-limit.github.io/ERR_ERL_KEY_GEN_IPV6/'
 }
-◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injected env (0) from .env // tip:  multiple files { path: ['.env.local', '.env'] }
 [0mPOST /api/products [32m201[0m 1568.610 ms - 335[0m
 ▶ Catalogue Contract - 14 Required Scenarios
-  ✔ 1. Draft creation succeeds (1726.526983ms)
+  [PASS] 1. Draft creation succeeds (1726.526983ms)
 [0mPOST /api/products [33m422[0m 7.695 ms - 165[0m
-  ✔ 2. Direct incomplete publication returns structured 422 (63.827145ms)
+  [PASS] 2. Direct incomplete publication returns structured 422 (63.827145ms)
 [0mPOST /api/products [32m201[0m 369.732 ms - 370[0m
 [0mPOST /api/products/variants [31m500[0m 260.422 ms - 1652[0m
-  ✖ 3. Complete draft, variant creation and publication succeed (705.145015ms)
+  [FAIL] 3. Complete draft, variant creation and publication succeed (705.145015ms)
 [0mGET /api/products [32m200[0m 488.360 ms - 94[0m
 [0mGET /api/products/soon-active [33m404[0m 259.293 ms - 61[0m
-  ✖ 4. List and detail use the same public contract (871.57316ms)
+  [FAIL] 4. List and detail use the same public contract (871.57316ms)
 [0mPOST /api/products [32m201[0m 162.920 ms - 323[0m
 [0mGET /api/products [32m200[0m 695.707 ms - 94[0m
 [0mGET /api/products/archived-p [33m404[0m 196.795 ms - 61[0m
-  ✔ 5. Draft and archived products remain private (1112.69092ms)
-  ✖ 6. Procurement fields never appear in serialized API JSON (313.510661ms)
+  [PASS] 5. Draft and archived products remain private (1112.69092ms)
+  [FAIL] 6. Procurement fields never appear in serialized API JSON (313.510661ms)
 [0mGET /api/products/soon-active [33m404[0m 269.391 ms - 61[0m
-  ✖ 7. Sourcing variants report sourcing (301.369689ms)
+  [FAIL] 7. Sourcing variants report sourcing (301.369689ms)
 [0mPOST /api/checkout [33m400[0m 21.283 ms - 229[0m
-  ✔ 8. Sourcing variants cannot pass cart, checkout or stock reservation (890.514762ms)
-  ✖ 9. Product/variant ownership mismatch is rejected (426.296008ms)
+  [PASS] 8. Sourcing variants cannot pass cart, checkout or stock reservation (890.514762ms)
+  [FAIL] 9. Product/variant ownership mismatch is rejected (426.296008ms)
 [0mPOST /api/products [33m409[0m 222.945 ms - 2219[0m
 [0mPOST /api/products/variants [31m500[0m 189.081 ms - 1652[0m
-  ✖ 10. Duplicate slug and SKU return controlled responses (635.33591ms)
+  [FAIL] 10. Duplicate slug and SKU return controlled responses (635.33591ms)
 --- DRY RUN MODE ---
 
 --- Phase 1: Product Repair ---
@@ -90,7 +90,7 @@ Changed:    1
 Skipped:    4
 Invalid:    0
 Unresolved: 0
-  ✔ 11. Migration dry-run performs zero writes (1206.475921ms)
+  [PASS] 11. Migration dry-run performs zero writes (1206.475921ms)
 --- APPLY MODE ---
 
 --- Phase 1: Product Repair ---
@@ -121,7 +121,7 @@ Changed:    4
 Skipped:    0
 Invalid:    0
 Unresolved: 0
-  ✖ 12. Apply is deterministic and a second apply changes zero records (3070.743748ms)
+  [FAIL] 12. Apply is deterministic and a second apply changes zero records (3070.743748ms)
 --- APPLY MODE ---
 
 --- Phase 1: Product Repair ---
@@ -137,7 +137,7 @@ Changed:    3
 Skipped:    1
 Invalid:    0
 Unresolved: 0
-  ✔ 13. Unambiguous legacy ownership is repaired (2248.617463ms)
+  [PASS] 13. Unambiguous legacy ownership is repaired (2248.617463ms)
 --- APPLY MODE ---
 
 --- Phase 1: Product Repair ---
@@ -154,21 +154,21 @@ Changed:    2
 Skipped:    2
 Invalid:    0
 Unresolved: 1
-  ✔ 14. Duplicate ownership and orphans are reported without deletion (1738.510455ms)
-✖ Catalogue Contract - 14 Required Scenarios (17318.734233ms)
-ℹ tests 15
-ℹ suites 0
-ℹ pass 7
-ℹ fail 8
-ℹ cancelled 0
-ℹ skipped 0
-ℹ todo 0
-ℹ duration_ms 27867.543702
+  [PASS] 14. Duplicate ownership and orphans are reported without deletion (1738.510455ms)
+[FAIL] Catalogue Contract - 14 Required Scenarios (17318.734233ms)
+[INFO] tests 15
+[INFO] suites 0
+[INFO] pass 7
+[INFO] fail 8
+[INFO] cancelled 0
+[INFO] skipped 0
+[INFO] todo 0
+[INFO] duration_ms 27867.543702
 
-✖ failing tests:
+[FAIL] failing tests:
 
 test at src/scripts/test-catalogue-contract.js:68:11
-✖ 3. Complete draft, variant creation and publication succeed (705.145015ms)
+[FAIL] 3. Complete draft, variant creation and publication succeed (705.145015ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
   
   500 !== 201
@@ -188,7 +188,7 @@ test at src/scripts/test-catalogue-contract.js:68:11
   }
 
 test at src/scripts/test-catalogue-contract.js:112:11
-✖ 4. List and detail use the same public contract (871.57316ms)
+[FAIL] 4. List and detail use the same public contract (871.57316ms)
   TypeError: Cannot read properties of undefined (reading 'name')
       at TestContext.<anonymous> (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/src/scripts/test-catalogue-contract.js:120:36)
       at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
@@ -198,7 +198,7 @@ test at src/scripts/test-catalogue-contract.js:112:11
       at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
 
 test at src/scripts/test-catalogue-contract.js:151:11
-✖ 6. Procurement fields never appear in serialized API JSON (313.510661ms)
+[FAIL] 6. Procurement fields never appear in serialized API JSON (313.510661ms)
   TypeError: Cannot set properties of null (setting 'sourcing')
       at TestContext.<anonymous> (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/src/scripts/test-catalogue-contract.js:156:22)
       at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
@@ -208,7 +208,7 @@ test at src/scripts/test-catalogue-contract.js:151:11
       at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
 
 test at src/scripts/test-catalogue-contract.js:167:11
-✖ 7. Sourcing variants report sourcing (301.369689ms)
+[FAIL] 7. Sourcing variants report sourcing (301.369689ms)
   TypeError: Cannot read properties of undefined (reading 'variants')
       at TestContext.<anonymous> (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/src/scripts/test-catalogue-contract.js:170:39)
       at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
@@ -218,7 +218,7 @@ test at src/scripts/test-catalogue-contract.js:167:11
       at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
 
 test at src/scripts/test-catalogue-contract.js:193:11
-✖ 9. Product/variant ownership mismatch is rejected (426.296008ms)
+[FAIL] 9. Product/variant ownership mismatch is rejected (426.296008ms)
   AssertionError [ERR_ASSERTION]: Variant should exist
       at TestContext.<anonymous> (file:///home/ad/Documents/Sanfaani%20Repairs/sanfaani-storebackend/src/scripts/test-catalogue-contract.js:196:12)
       at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
@@ -235,7 +235,7 @@ test at src/scripts/test-catalogue-contract.js:193:11
   }
 
 test at src/scripts/test-catalogue-contract.js:207:11
-✖ 10. Duplicate slug and SKU return controlled responses (635.33591ms)
+[FAIL] 10. Duplicate slug and SKU return controlled responses (635.33591ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
   
   500 !== 409
@@ -255,7 +255,7 @@ test at src/scripts/test-catalogue-contract.js:207:11
   }
 
 test at src/scripts/test-catalogue-contract.js:258:11
-✖ 12. Apply is deterministic and a second apply changes zero records (3070.743748ms)
+[FAIL] 12. Apply is deterministic and a second apply changes zero records (3070.743748ms)
   AssertionError [ERR_ASSERTION]: Second run should have zero changes
   
   4 !== 0

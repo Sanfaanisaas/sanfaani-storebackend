@@ -71,7 +71,7 @@ export const errorHandler = (error, req, res, next) => {
   const response = classifyError(error);
 
   if (env.sentryDsn) Sentry.captureException(error);
-  if (response.statusCode >= 500) console.error("ERROR 💥", error);
+  if (response.statusCode >= 500) console.error("ERROR", error);
 
   return res.status(response.statusCode).json({
     success: false,
