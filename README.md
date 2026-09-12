@@ -68,11 +68,11 @@ logout is intentionally idempotent.
 
 Account session endpoints use the normal bearer middleware:
 
-| Endpoint | Success | Behavior |
-| --- | --- | --- |
-| `GET /api/auth/sessions` | `200` | Lists only this account's sessions. |
-| `DELETE /api/auth/sessions/:sessionId` | `200` | Revokes one owned session; unavailable/cross-account IDs return non-enumerating `404`. |
-| `DELETE /api/auth/sessions` | `200` | Revokes all sessions for the account and clears the attached refresh cookie. |
+| Endpoint                               | Success | Behavior                                                                               |
+| -------------------------------------- | ------- | -------------------------------------------------------------------------------------- |
+| `GET /api/auth/sessions`               | `200`   | Lists only this account's sessions.                                                    |
+| `DELETE /api/auth/sessions/:sessionId` | `200`   | Revokes one owned session; unavailable/cross-account IDs return non-enumerating `404`. |
+| `DELETE /api/auth/sessions`            | `200`   | Revokes all sessions for the account and clears the attached refresh cookie.           |
 
 The safe session DTO contains only `id`, `createdAt`, `lastUsedAt`, `expiresAt`,
 `deviceLabel`, `current`, and `revoked`. It excludes token digests, JWT IDs,
@@ -97,10 +97,10 @@ transition.
 controls Paystack transaction mode. The application supports these hosted
 configurations:
 
-| `NODE_ENV` | `PAYSTACK_MODE` | Required key prefix | Purpose |
-| --- | --- | --- | --- |
-| `production` | `test` | `sk_test_` | Hosted staging/testing |
-| `production` | `live` | `sk_live_` | Real production transactions |
+| `NODE_ENV`   | `PAYSTACK_MODE` | Required key prefix | Purpose                      |
+| ------------ | --------------- | ------------------- | ---------------------------- |
+| `production` | `test`          | `sk_test_`          | Hosted staging/testing       |
+| `production` | `live`          | `sk_live_`          | Real production transactions |
 
 A mismatched key causes startup to fail intentionally. Keep `PAYSTACK_MODE=test`
 on Render until live transactions are deliberately enabled. Configure all
@@ -271,7 +271,10 @@ Example publishable variant fields:
   },
   "limitations": "None",
   "conditionEvidence": [
-    { "url": "https://example.com/evidence/front.jpg", "alt": "Front condition" }
+    {
+      "url": "https://example.com/evidence/front.jpg",
+      "alt": "Front condition"
+    }
   ],
   "warranty": {
     "version": "2024-01-01",
@@ -432,6 +435,17 @@ successful deletion, and records completion or retry exhaustion safely. It
 never scans an arbitrary bucket prefix. Frontends must submit `multipart/form-data`
 with a `file` part, must not treat a signed URL as durable, and should refresh a
 download URL only through the authenticated endpoint.
+
+## Backend Implementation Tickets & Traceability (BE-14)
+
+The canonical ticket register (BE-10 through BE-31) and PRD traceability matrix have been relocated to dedicated documentation files to prevent numbering collisions:
+
+- `docs/backend-ticket-register.md`
+- `docs/backend-prd-traceability.md`
+
+Please refer to these documents for the definition of done for Customer Domains (BE-10), Repair Lifecycle (BE-11), Staff Queues (BE-12), Inventory & Procurement (BE-13), and all remaining R1 production-core blockers.
+
+## Run locally
 
 ```powershell
 npm install

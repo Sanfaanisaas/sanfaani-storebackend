@@ -34,7 +34,8 @@
     "test:contracts": "node --test src/scripts/test-shared-contracts.js",
     "test:security": "node --test src/scripts/test-security-regressions.js",
     "test:ci": "pnpm test:auth-session && pnpm test:catalogue && pnpm test:cart-checkout && pnpm test:repair-tracking && pnpm test:quote-lifecycle && pnpm test:payment-transitions && pnpm test:payments && pnpm test:repair-gates && pnpm test:fulfilment && pnpm test:evidence-storage && pnpm test:customer-warranties && pnpm test:customer-returns && pnpm test:support-notifications && pnpm test:customer-guidance && pnpm test:customer-procurement && pnpm test:customer-services && pnpm test:customer-repairs && pnpm test:repair-evidence && pnpm test:staff-queues && pnpm test:inventory-procurement && pnpm test:openapi && pnpm test:contracts && pnpm test:security",
-    "cleanup:evidence": "node src/scripts/cleanup-orphaned-evidence.js"
+    "cleanup:evidence": "node src/scripts/cleanup-orphaned-evidence.js",
+    "test:traceability": "node --test src/scripts/test-prd-traceability.js"
   },
   "keywords": [],
   "author": "",
