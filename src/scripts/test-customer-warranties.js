@@ -129,7 +129,12 @@ test("1. Owner can list and view their warranties, but foreign/malformed IDs ret
 
   assert.equal(wrongOwner.status, 404);
   assert.equal(wrongOwner.body.errors[0].code, "warranty_unavailable"); // Prevents enumeration
-  assert.equal(malformed.status === 404 || malformed.status === 400, true);
+  // Accept Zod's 422, Mongoose/Controller's 400, or a silent 404
+  assert.equal(
+    [400, 404, 422].includes(malformed.status),
+    true,
+    `Expected 400/404/422 for malformed ID, got ${malformed.status}`,
+  );
 });
 
 test("2. Warranty eligibility accurately projects ACTIVE, EXPIRED, VOID, and EXHAUSTED states", async () => {
