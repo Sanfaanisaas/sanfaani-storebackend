@@ -26,6 +26,13 @@
     "test:customer-guidance": "node --test src/scripts/test-customer-guidance.js",
     "test:customer-procurement": "node --test src/scripts/test-customer-procurement.js",
     "test:customer-services": "node --test src/scripts/test-customer-services.js",
+    "test:repair-evidence": "node --test src/scripts/test-repair-evidence.js",
+    "test:staff-queues": "node --test src/scripts/test-staff-queues.js",
+    "test:inventory-procurement": "node --test src/scripts/test-inventory-procurement.js",
+    "test:openapi": "node --test src/scripts/test-openapi-contract.js",
+    "test:contracts": "node --test src/scripts/test-shared-contracts.js",
+    "test:security": "node --test src/scripts/test-security-regressions.js",
+    "test:ci": "pnpm test:auth-session && pnpm test:catalogue && pnpm test:cart-checkout && pnpm test:repair-tracking && pnpm test:quote-lifecycle && pnpm test:payment-transitions && pnpm test:payments && pnpm test:repair-gates && pnpm test:fulfilment && pnpm test:evidence-storage && pnpm test:customer-warranties && pnpm test:customer-returns && pnpm test:support-notifications && pnpm test:customer-guidance && pnpm test:customer-procurement && pnpm test:customer-services && pnpm test:repair-evidence && pnpm test:staff-queues && pnpm test:inventory-procurement && pnpm test:openapi && pnpm test:contracts && pnpm test:security",
     "cleanup:evidence": "node src/scripts/cleanup-orphaned-evidence.js"
   },
   "keywords": [],

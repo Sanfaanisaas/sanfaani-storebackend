@@ -176,7 +176,7 @@ test("1. Uniform error envelope across environments", async () => {
   runtimeEnv.nodeEnv = originalMode;
 
   const zodFailure = await request(app).post("/api/cart/items").set(auth()).send({});
-  assert.equal(zodFailure.status, 400);
+  assert.equal(zodFailure.status, 422);
   assertErrorEnvelope(zodFailure.body);
   assert.ok(zodFailure.body.errors.every((detail) => detail.field && detail.code));
 

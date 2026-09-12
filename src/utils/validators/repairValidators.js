@@ -1,7 +1,12 @@
 import { z } from "zod";
 
 export const createRepairSchema = z.object({
-  device: z.preprocess((val) => (typeof val === "string" ? JSON.parse(val) : val), z.object({
+  device: z.preprocess((val) => {
+    if (typeof val === "string") {
+      try { return JSON.parse(val); } catch (e) { return val; }
+    }
+    return val;
+  }, z.object({
     type: z.string().trim().min(1, "Device type is required"),
     brand: z.string().trim().min(1, "Brand is required"),
     model: z.string().trim().min(1, "Model is required"),

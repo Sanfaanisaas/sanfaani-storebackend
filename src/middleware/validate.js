@@ -6,7 +6,7 @@ export function validate(schema, source = "body") {
     const result = schema.safeParse(dataToValidate);
 
     if (!result.success) {
-      return res.status(400).json({
+      return res.status(422).json({
         success: false,
         message: "Validation failed",
         errors: result.error.issues.map((issue) => ({

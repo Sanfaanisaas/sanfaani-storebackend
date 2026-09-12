@@ -2,6 +2,7 @@ import Repair from "../models/Repair.js";
 import Warranty from "../models/Warranty.js";
 import Quote from "../models/Quote.js";
 import Payment from "../models/Payment.js";
+import AuditLog from "../models/AuditLog.js";
 import AppError from "../utils/AppError.js";
 import { REPAIR_STATUS, WARRANTY_PERIOD_DAYS, QUOTE_STATUS } from "../utils/constants.js";
 import mongoose from "mongoose";
@@ -110,10 +111,13 @@ export const recordDiagnosis = async (repairId, technicianId, { diagnosisNotes, 
   if (!repair.technician || repair.technician.toString() !== technicianId) {
     throw new AppError("You are not the assigned technician for this repair.", 403);
   }
+  if ([REPAIR_STATUS.HANDED_OVER, REPAIR_STATUS.COMPLETED, REPAIR_STATUS.CANCELLED].includes(repair.status)) {
+    throw new AppError("Cannot record diagnosis on a finalized repair", 409);
+  }
 
   repair.diagnosisNotes = diagnosisNotes;
   repair.estimatedCost = estimatedCost;
-  // Requirement: status -> QUOTE_SENT is NOT set here.
+  repair.status = REPAIR_STATUS.DIAGNOSING;
   
   await repair.save();
   return repair;
@@ -253,4 +257,23 @@ export const findUsersByEmailOrName = async (searchRegex) => {
       { email: searchRegex }
     ]
   }).select('_id');
+};
+
+export const getRepairReconstruction = async (repairId, actorRole) => {
+  if (!["store_operator", "technician", "qc_officer", "ops_manager", "super_admin"].includes(actorRole)) {
+    throw new AppError("You do not have permission to view repair reconstruction timeline", 403);
+  }
+  const repair = await Repair.findById(repairId).populate("customer", "name email").populate("technician", "name role");
+  if (!repair) throw new AppError("Repair not found.", 404);
+  const auditLogs = await AuditLog.find({ entityType: "Repair", entityId: repair._id }).sort({ createdAt: 1 }).lean();
+  const timeline = [
+    { event: "REPAIR_CREATED", timestamp: repair.createdAt, actor: repair.customer },
+    ...(repair.custody?.receivedAt ? [{ event: "CUSTODY_RECORDED", timestamp: repair.custody.receivedAt, location: repair.custody.location }] : []),
+    ...(repair.assignedAt ? [{ event: "TECHNICIAN_ASSIGNED", timestamp: repair.assignedAt, technician: repair.technician }] : []),
+    ...(repair.diagnosis?.diagnosedAt ? [{ event: "DIAGNOSIS_RECORDED", timestamp: repair.diagnosis.diagnosedAt, findings: repair.diagnosis.findings }] : []),
+    ...(repair.workCompletedAt ? [{ event: "WORK_COMPLETED", timestamp: repair.workCompletedAt, workPerformed: repair.workPerformed }] : []),
+    ...(repair.qcRecord?.performedAt ? [{ event: "QC_PERFORMED", timestamp: repair.qcRecord.performedAt, passed: repair.qcRecord.passed, officer: repair.qcRecord.officer }] : []),
+    ...(repair.handedOverAt ? [{ event: "HANDED_OVER", timestamp: repair.handedOverAt, recipient: repair.handoverRecipient }] : []),
+  ];
+  return { repairId: repair._id.toString(), status: repair.status, timeline, auditCount: auditLogs.length };
 };

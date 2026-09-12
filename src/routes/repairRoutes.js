@@ -22,7 +22,8 @@ import {
   handoverRepair,
   trackRepair,
   rotateTrackingToken,
-  getRepairQueue
+  getRepairQueue,
+  getRepairReconstruction
 } from "../controllers/repairController.js";
 import { USER_ROLES } from "../utils/constants.js";
 
@@ -260,5 +261,18 @@ router.get("/:id/track", repairTrackingLimiter, optionalAccessAuthentication, tr
  *       429: { description: Token rotation rate limit exceeded }
  */
 router.post("/:id/tracking-token", authenticate, repairTrackingRotationLimiter, rotateTrackingToken);
+
+router.get(
+  "/:id/reconstruction",
+  authenticate,
+  authorize(
+    USER_ROLES.STORE_OPERATOR,
+    USER_ROLES.TECHNICIAN,
+    USER_ROLES.QC_OFFICER,
+    USER_ROLES.OPS_MANAGER,
+    USER_ROLES.SUPER_ADMIN
+  ),
+  getRepairReconstruction
+);
 
 export default router;

@@ -1,4 +1,5 @@
 import { catchAsync } from "../utils/catchAsync.js";
+import Repair from "../models/Repair.js";
 import * as repairService from "../services/repairService.js";
 import * as quoteService from "../services/quoteService.js";
 
@@ -182,4 +183,9 @@ export const getRepairQueue = catchAsync(async (req, res) => {
       pages: Math.ceil(total / limit),
     },
   });
+});
+
+export const getRepairReconstruction = catchAsync(async (req, res) => {
+  const data = await repairService.getRepairReconstruction(req.params.id, req.user.role);
+  res.status(200).json({ success: true, data });
 });
