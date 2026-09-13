@@ -18,6 +18,7 @@ import {
   createVariantSchemaWithRefinement,
   updateVariantSchema,
 } from "../utils/validators/productValidators.js";
+import { searchProductsSchema } from "../utils/validators/productSearchValidators.js";
 
 const router = Router();
 
@@ -26,17 +27,40 @@ const router = Router();
  * @swagger
  * /products:
  *   get:
- *     summary: List active products
+ *     summary: Search and list active products
  *     tags: [Products]
  *     parameters:
  *       - in: query
+ *         name: q
+ *         description: Text search across name, description, brand, and tags
+ *         schema: { type: string }
+ *       - in: query
+ *         name: category
+ *         schema: { type: string }
+ *       - in: query
+ *         name: brand
+ *         schema: { type: string }
+ *       - in: query
+ *         name: condition
+ *         schema: { type: string, enum: [new, used_good, refurbished_grade_a] }
+ *       - in: query
+ *         name: availability
+ *         schema: { type: string, enum: [in_stock, low_stock, out_of_stock, sourcing] }
+ *       - in: query
+ *         name: minPrice
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: maxPrice
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: sort
+ *         schema: { type: string, enum: [price_asc, price_desc, newest, relevance] }
+ *       - in: query
  *         name: page
- *         schema:
- *           type: integer
+ *         schema: { type: integer, default: 1 }
  *       - in: query
  *         name: limit
- *         schema:
- *           type: integer
+ *         schema: { type: integer, default: 10 }
  *     responses:
  *       200:
  *         description: List of products with public variants
@@ -52,8 +76,16 @@ const router = Router();
  *                     products:
  *                       type: array
  *                       items: { $ref: '#/components/schemas/PublicProduct' }
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         total: { type: integer }
+ *                         page: { type: integer }
+ *                         limit: { type: integer }
+ *                         pages: { type: integer }
  */
 router.get("/", listProducts);
+//router.get("/", validate(searchProductsSchema), listProducts);
 
 /**
  * @swagger
@@ -123,7 +155,7 @@ router.post(
   authenticate,
   authorize("product_admin", "super_admin"),
   validate(createProductSchema),
-  createProduct
+  createProduct,
 );
 
 /**
@@ -154,7 +186,7 @@ router.patch(
   authenticate,
   authorize("product_admin", "super_admin"),
   validate(updateProductSchema),
-  updateProduct
+  updateProduct,
 );
 
 /**
@@ -179,7 +211,7 @@ router.delete(
   "/:id",
   authenticate,
   authorize("product_admin", "super_admin"),
-  deleteProduct
+  deleteProduct,
 );
 
 /**
@@ -211,7 +243,7 @@ router.post(
   authenticate,
   authorize("product_admin", "super_admin"),
   validate(createVariantSchemaWithRefinement),
-  createVariant
+  createVariant,
 );
 
 /**
@@ -236,7 +268,7 @@ router.patch(
   authenticate,
   authorize("product_admin", "super_admin"),
   validate(updateVariantSchema),
-  updateVariant
+  updateVariant,
 );
 
 export default router;

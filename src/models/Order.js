@@ -8,25 +8,13 @@ const orderItemSchema = new mongoose.Schema(
       ref: "Product",
       required: true,
     },
-    variantSku: {
-      type: String,
-      required: true,
-    },
-    nameSnapshot: {
-      type: String,
-      required: true,
-    },
-    priceSnapshot: {
-      type: Number,
-      required: true,
-    },
-    quantity: {
-      type: Number,
-      required: true,
-      min: 1,
-    },
+    variantSku: { type: String, required: true },
+    nameSnapshot: { type: String, required: true },
+    priceSnapshot: { type: Number, required: true },
+    quantity: { type: Number, required: true, min: 1 },
+    assignedSerials: [{ type: String }],
   },
-  { _id: false }
+  { _id: false },
 );
 
 const orderSchema = new mongoose.Schema(
@@ -45,22 +33,10 @@ const orderSchema = new mongoose.Schema(
       postalCode: { type: String, trim: true },
       country: { type: String, required: true, trim: true },
     },
-    subtotal: {
-      type: Number,
-      required: true,
-    },
-    tax: {
-      type: Number,
-      default: 0,
-    },
-    shippingCost: {
-      type: Number,
-      default: 0,
-    },
-    total: {
-      type: Number,
-      required: true,
-    },
+    subtotal: { type: Number, required: true },
+    tax: { type: Number, default: 0 },
+    shippingCost: { type: Number, default: 0 },
+    total: { type: Number, required: true },
     status: {
       type: String,
       enum: Object.values(ORDER_STATUS),
@@ -76,35 +52,41 @@ const orderSchema = new mongoose.Schema(
       enum: ["pending", "paid", "failed", "partially_refunded", "refunded"],
       default: "pending",
     },
-    idempotencyKey: {
-      type: String,
-      trim: true,
-      maxlength: 128,
-    },
-    requestFingerprint: {
-      type: String,
-      match: /^[a-f0-9]{64}$/,
-    },
-    paymentReference: {
-      type: String,
-    },
-    receiptUrl: {
-      type: String,
-    },
-    verifiedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
-    verifiedAt: {
-      type: Date,
-    },
+    idempotencyKey: { type: String, trim: true, maxlength: 128 },
+    requestFingerprint: { type: String, match: /^[a-f0-9]{64}$/ },
+    paymentReference: { type: String },
+    receiptUrl: { type: String },
+    verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    verifiedAt: { type: Date },
     dueAt: { type: Date, default: null, index: true },
-    priority: { type: String, enum: ["LOW", "NORMAL", "HIGH", "URGENT"], default: "NORMAL" },
+    priority: {
+      type: String,
+      enum: ["LOW", "NORMAL", "HIGH", "URGENT"],
+      default: "NORMAL",
+    },
     blockerCode: { type: String, default: null, maxlength: 64 },
     blockerMessage: { type: String, default: null, maxlength: 500 },
-    assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    assignedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    // BE-16 Fulfilment & Identity Tracking
+    fulfilment: {
+      identityDocumentType: {
+        type: String,
+        enum: ["ID_CARD", "PASSPORT", "DRIVERS_LICENSE", "OTHER"],
+      },
+      acknowledgedBy: { type: String },
+      trackingReference: { type: String },
+      courierName: { type: String },
+      dispatchedAt: { type: Date },
+      collectedAt: { type: Date },
+      deliveredAt: { type: Date },
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 orderSchema.index(
@@ -130,11 +112,11 @@ orderSchema.methods.toPublicOrder = function () {
     paymentStatus: this.paymentStatus,
     status: this.status,
     receiptUrl: this.receiptUrl,
+    fulfilment: this.fulfilment,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
   };
 };
 
 const Order = mongoose.model("Order", orderSchema);
-
 export default Order;
