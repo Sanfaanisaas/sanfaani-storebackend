@@ -12,50 +12,82 @@ const finiteNonNegative = {
   message: "{PATH} must be a finite non-negative number",
 };
 
-const SourcingSchema = new Schema({
-  supplier: { type: String, required: true, trim: true },
-  leadTimeDays: { type: Number, required: true, validate: finiteNonNegative },
-  costPrice: { type: Number, required: true, validate: finiteNonNegative },
-}, { _id: false, strict: "throw" });
-
-const WarrantyTermsSchema = new Schema({
-  version: {
-    type: String,
-    required: true,
-    trim: true,
-    match: /^[A-Za-z0-9][A-Za-z0-9._-]*$/,
+const SourcingSchema = new Schema(
+  {
+    supplier: { type: String, required: true, trim: true },
+    leadTimeDays: { type: Number, required: true, validate: finiteNonNegative },
+    costPrice: { type: Number, required: true, validate: finiteNonNegative },
   },
-  terms: { type: String, required: true, trim: true },
-}, { _id: false, strict: "throw" });
+  { _id: false, strict: "throw" },
+);
 
-const InspectionSchema = new Schema({
-  summary: { type: String, required: true, trim: true },
-  inspectedAt: { type: Date },
-  inspector: { type: String, trim: true },
-}, { _id: false, strict: "throw" });
-
-const ConditionEvidenceSchema = new Schema({
-  url: { type: String, required: true, trim: true },
-  alt: { type: String, trim: true },
-}, { _id: false, strict: "throw" });
-
-const VariantSchema = new Schema({
-  product: { type: Schema.Types.ObjectId, ref: "Product", required: true, index: true },
-  sku: { type: String, required: true, trim: true, unique: true, index: true },
-  attributes: { type: Schema.Types.Mixed, required: true },
-  price: { type: Number, required: true, validate: finiteNonNegative },
-  condition: {
-    type: String,
-    enum: Object.values(PRODUCT_CONDITION),
-    required: true,
+const WarrantyTermsSchema = new Schema(
+  {
+    version: {
+      type: String,
+      required: true,
+      trim: true,
+      match: /^[A-Za-z0-9][A-Za-z0-9._-]*$/,
+    },
+    terms: { type: String, required: true, trim: true },
   },
-  inspection: { type: InspectionSchema },
-  limitations: { type: String, trim: true },
-  conditionEvidence: { type: [ConditionEvidenceSchema], default: undefined },
-  warranty: { type: WarrantyTermsSchema },
-  sourcing: { type: SourcingSchema },
-  inStock: { type: Number, validate: finiteNonNegative },
-}, { timestamps: true });
+  { _id: false, strict: "throw" },
+);
+
+const InspectionSchema = new Schema(
+  {
+    summary: { type: String, required: true, trim: true },
+    inspectedAt: { type: Date },
+    inspector: { type: String, trim: true },
+  },
+  { _id: false, strict: "throw" },
+);
+
+const ConditionEvidenceSchema = new Schema(
+  {
+    url: { type: String, required: true, trim: true },
+    alt: { type: String, trim: true },
+  },
+  { _id: false, strict: "throw" },
+);
+
+const VariantSchema = new Schema(
+  {
+    product: {
+      type: Schema.Types.ObjectId,
+      ref: "Product",
+      required: true,
+      index: true,
+    },
+    sku: {
+      type: String,
+      required: true,
+      trim: true,
+      unique: true,
+      index: true,
+    },
+    attributes: { type: Schema.Types.Mixed, required: true },
+    price: {
+      type: Number,
+      required: true,
+      validate: finiteNonNegative,
+      index: true,
+    },
+    condition: {
+      type: String,
+      enum: Object.values(PRODUCT_CONDITION),
+      required: true,
+      index: true,
+    },
+    inspection: { type: InspectionSchema },
+    limitations: { type: String, trim: true },
+    conditionEvidence: { type: [ConditionEvidenceSchema], default: undefined },
+    warranty: { type: WarrantyTermsSchema },
+    sourcing: { type: SourcingSchema },
+    inStock: { type: Number, validate: finiteNonNegative, index: true },
+  },
+  { timestamps: true },
+);
 
 VariantSchema.virtual("availability").get(function availability() {
   if (this.sourcing != null) return AVAILABILITY_STATUS.SOURCING;

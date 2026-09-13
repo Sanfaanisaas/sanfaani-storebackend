@@ -9,7 +9,11 @@ import fs from "fs";
 import path from "path";
 import { env } from "../config/env.js";
 import AppError from "../utils/AppError.js";
-import { cancelOrderWithReservations, fulfillOrder } from "../services/reservationService.js";
+import {
+  cancelOrderWithReservations,
+  fulfillOrder,
+  confirmDelivery,
+} from "../services/reservationService.js";
 
 /**
  * Get authenticated user's orders with pagination
@@ -22,10 +26,7 @@ export const getMyOrders = catchAsync(async (req, res) => {
   const query = { userId: req.user.id };
 
   const [orders, totalCount] = await Promise.all([
-    Order.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit),
+    Order.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit),
     Order.countDocuments(query),
   ]);
 
@@ -79,7 +80,12 @@ export const uploadReceipt = catchAsync(async (req, res) => {
   }
 
   if (env.nodeEnv === "production") {
-    throw new AppError("Private evidence storage is not configured", 503, [{ code: "evidence_storage_unavailable", message: "Receipt uploads are temporarily unavailable" }]);
+    throw new AppError("Private evidence storage is not configured", 503, [
+      {
+        code: "evidence_storage_unavailable",
+        message: "Receipt uploads are temporarily unavailable",
+      },
+    ]);
   }
   // Test/development adapters must persist an evidence record before assigning a receipt reference.
   // Do not retain an ephemeral filesystem path.
@@ -101,7 +107,7 @@ export const checkEligiblePickup = catchAsync(async (req, res) => {
 
   const orderData = {
     total,
-    shippingAddress
+    shippingAddress,
   };
 
   const eligible = isPayOnPickupEligible(orderData);
@@ -110,8 +116,8 @@ export const checkEligiblePickup = catchAsync(async (req, res) => {
     success: true,
     data: {
       eligible,
-      message: eligible 
-        ? "Order is eligible for pay-on-pickup." 
+      message: eligible
+        ? "Order is eligible for pay-on-pickup."
         : "Order is not eligible for pay-on-pickup based on location or total amount.",
     },
   });
@@ -124,33 +130,34 @@ export const verifyBankTransfer = catchAsync(async (req, res) => {
   const { id } = req.params;
 
   const order = await Order.findOneAndUpdate(
-    { 
-      _id: id, 
-      paymentMethod: 'bank_transfer', 
-      paymentStatus: 'pending' 
+    {
+      _id: id,
+      paymentMethod: "bank_transfer",
+      paymentStatus: "pending",
     },
-    { 
-      paymentStatus: 'paid', 
-      verifiedBy: req.user.id, 
+    {
+      paymentStatus: "paid",
+      verifiedBy: req.user.id,
       verifiedAt: new Date(),
-      status: ORDER_STATUS.PAID
+      status: ORDER_STATUS.PAID,
     },
-    { new: true }
+    { new: true },
   );
 
   if (!order) {
     return res.status(400).json({
       success: false,
-      message: "Order not eligible for verification (not found, already paid, or not bank transfer)",
+      message:
+        "Order not eligible for verification (not found, already paid, or not bank transfer)",
     });
   }
 
   await writeAuditLog(
     req.user.id,
-    'BANK_TRANSFER_VERIFIED',
-    'Order',
+    "BANK_TRANSFER_VERIFIED",
+    "Order",
     order._id,
-    { previousStatus: 'pending', newStatus: 'paid' }
+    { previousStatus: "pending", newStatus: "paid" },
   );
 
   res.status(200).json({
@@ -160,17 +167,40 @@ export const verifyBankTransfer = catchAsync(async (req, res) => {
 });
 
 export const cancelOrder = catchAsync(async (req, res) => {
-  const order = await cancelOrderWithReservations({ orderId: req.params.id, ownerId: req.user.id, actorId: req.user.id, actorRole: req.user.role });
+  const order = await cancelOrderWithReservations({
+    orderId: req.params.id,
+    ownerId: req.user.id,
+    actorId: req.user.id,
+    actorRole: req.user.role,
+  });
   res.json({ success: true, data: order.toPublicOrder() });
 });
 
 export const dispatchOrder = catchAsync(async (req, res) => {
-  const order = await fulfillOrder({ orderId: req.params.id, actorId: req.user.id, action: "dispatch" });
+  const order = await fulfillOrder({
+    orderId: req.params.id,
+    actorId: req.user.id,
+    action: "dispatch",
+    metadata: req.body,
+  });
   res.json({ success: true, data: order.toPublicOrder() });
 });
 
 export const collectOrder = catchAsync(async (req, res) => {
-  const order = await fulfillOrder({ orderId: req.params.id, actorId: req.user.id, action: "collect" });
+  const order = await fulfillOrder({
+    orderId: req.params.id,
+    actorId: req.user.id,
+    action: "collect",
+    metadata: req.body,
+  });
+  res.json({ success: true, data: order.toPublicOrder() });
+});
+
+export const deliverOrder = catchAsync(async (req, res) => {
+  const order = await confirmDelivery({
+    orderId: req.params.id,
+    actorId: req.user.id,
+  });
   res.json({ success: true, data: order.toPublicOrder() });
 });
 
@@ -219,14 +249,18 @@ export const generateReceiptPDF = catchAsync(async (req, res) => {
 
   doc.text("Items:", { underline: true });
   order.items.forEach((item) => {
-    doc.text(`${item.nameSnapshot} x ${item.quantity} - NGN ${item.priceSnapshot.toLocaleString()}`);
+    doc.text(
+      `${item.nameSnapshot} x ${item.quantity} - NGN ${item.priceSnapshot.toLocaleString()}`,
+    );
   });
 
   doc.moveDown();
   doc.text(`Subtotal: NGN ${order.subtotal.toLocaleString()}`);
   doc.text(`Tax: NGN ${order.tax.toLocaleString()}`);
   doc.text(`Shipping: NGN ${order.shippingCost.toLocaleString()}`);
-  doc.fontSize(14).text(`Total: NGN ${order.total.toLocaleString()}`, { bold: true });
+  doc
+    .fontSize(14)
+    .text(`Total: NGN ${order.total.toLocaleString()}`, { bold: true });
 
   doc.end();
 });
@@ -252,26 +286,27 @@ export const getOrderQueue = catchAsync(async (req, res) => {
 
   if (search) {
     // Escape search for regex
-    const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const searchRegex = new RegExp(escapedSearch, 'i');
-    
+    const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const searchRegex = new RegExp(escapedSearch, "i");
+
     // Search by Order ID or User Email
     // Note: To search by email, we might need to find users first or use aggregation
-    const matchingUsers = await mongoose.model('User').find({ email: searchRegex }).select('_id');
-    const userIds = matchingUsers.map(u => u._id);
+    const matchingUsers = await mongoose
+      .model("User")
+      .find({ email: searchRegex })
+      .select("_id");
+    const userIds = matchingUsers.map((u) => u._id);
 
-    query.$or = [
-      { userId: { $in: userIds } }
-    ];
+    query.$or = [{ userId: { $in: userIds } }];
 
     if (mongoose.Types.ObjectId.isValid(search)) {
-        query.$or.push({ _id: search });
+      query.$or.push({ _id: search });
     }
   }
 
   const [orders, total] = await Promise.all([
     Order.find(query)
-      .populate('userId', 'name email')
+      .populate("userId", "name email")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit),

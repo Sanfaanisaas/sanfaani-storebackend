@@ -14,7 +14,12 @@ const INTERNAL_PROCUREMENT_KEYS = new Set([
 
 const sanitizePublicValue = (value) => {
   if (Array.isArray(value)) return value.map(sanitizePublicValue);
-  if (!value || typeof value !== "object" || value instanceof Date || value._bsontype) {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    value instanceof Date ||
+    value._bsontype
+  ) {
     return value;
   }
 
@@ -25,15 +30,16 @@ const sanitizePublicValue = (value) => {
   );
 };
 
-const copyDefined = (source, fields) => Object.fromEntries(
-  fields
-    .filter((field) => source?.[field] !== undefined)
-    .map((field) => [field, sanitizePublicValue(source[field])]),
-);
+const copyDefined = (source, fields) =>
+  Object.fromEntries(
+    fields
+      .filter((field) => source?.[field] !== undefined)
+      .map((field) => [field, sanitizePublicValue(source[field])]),
+  );
 
-const documentObject = (value) => (
-  value?.toObject ? value.toObject({ virtuals: false }) : value
-);
+// Safely handle both Mongoose Documents (from basic controllers) and POJOs (from Aggregation Pipelines)
+const documentObject = (value) =>
+  value?.toObject ? value.toObject({ virtuals: false }) : value;
 
 export const deriveAvailability = (variant) => {
   if (variant?.sourcing != null) return AVAILABILITY_STATUS.SOURCING;
@@ -41,7 +47,8 @@ export const deriveAvailability = (variant) => {
     return AVAILABILITY_STATUS.OUT_OF_STOCK;
   }
   if (variant.inStock === 0) return AVAILABILITY_STATUS.OUT_OF_STOCK;
-  if (variant.inStock <= LOW_STOCK_THRESHOLD) return AVAILABILITY_STATUS.LOW_STOCK;
+  if (variant.inStock <= LOW_STOCK_THRESHOLD)
+    return AVAILABILITY_STATUS.LOW_STOCK;
   return AVAILABILITY_STATUS.IN_STOCK;
 };
 
@@ -72,6 +79,7 @@ export const projectVariantPublic = (variant) => {
   const source = documentObject(variant) ?? {};
   const projected = copyDefined(source, VARIANT_PUBLIC_FIELDS);
 
+  // Safely extract string IDs from both Document _id and POJO _id objects
   if (source._id != null) projected.id = source._id.toString();
   projected.availability = deriveAvailability(source);
 

@@ -1,5 +1,7 @@
 import Product from "../models/Product.js";
 import Variant from "../models/Variant.js";
+import { searchCatalogue } from "../services/catalogueSearchService.js";
+import { searchProductsSchema } from "../utils/validators/productSearchValidators.js";
 import {
   normalizeSlug,
   publicationErrorBody,
@@ -103,39 +105,35 @@ export const deleteProduct = catchAsync(async (req, res) => {
 });
 
 export const listProducts = catchAsync(async (req, res) => {
-  const page = parseInt(req.query.page, 10) || 1;
-  const limit = parseInt(req.query.limit, 10) || 10;
-  const skip = (page - 1) * limit;
+  // 1. Natively validate the query parameters using Zod
+  const validation = searchProductsSchema.safeParse(req.query);
 
-  const products = await Product.find({ status: PRODUCT_STATUS.ACTIVE })
-    .skip(skip)
-    .limit(limit)
-    .sort("-createdAt")
-    .lean();
+  if (!validation.success) {
+    return res.status(422).json({
+      success: false,
+      message: "Invalid search parameters",
+      // Safely access Zod's issues array and fallback to empty array
+      errors: (validation.error?.issues || []).map((err) => ({
+        code: "invalid_query_parameter",
+        path: Array.isArray(err.path) ? err.path.join(".") : "",
+        message: err.message,
+      })),
+    });
+  }
 
-  const productIds = products.map((product) => product._id);
-  const variants = await Variant.find({ product: { $in: productIds } }).lean();
-  const variantsByProduct = variants.reduce((grouped, variant) => {
-    const productId = variant.product?.toString();
-    if (productId) (grouped[productId] ??= []).push(variant);
-    return grouped;
-  }, {});
-  const data = products.map((product) => projectProductPublic(
-    product,
-    variantsByProduct[product._id.toString()] ?? [],
-  ));
-  const total = await Product.countDocuments({ status: PRODUCT_STATUS.ACTIVE });
+  // 2. Fetch the aggregated catalogue data
+  const result = await searchCatalogue(req.query);
+
+  // 3. Project the data securely for public consumption
+  const data = (result.products || []).map((product) =>
+    projectProductPublic(product, product.variants || []),
+  );
 
   return res.status(200).json({
     success: true,
     data: {
       products: data,
-      pagination: {
-        total,
-        page,
-        limit,
-        pages: Math.ceil(total / limit),
-      },
+      pagination: result.pagination,
     },
   });
 });

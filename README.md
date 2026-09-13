@@ -445,6 +445,16 @@ The canonical ticket register (BE-10 through BE-31) and PRD traceability matrix 
 
 Please refer to these documents for the definition of done for Customer Domains (BE-10), Repair Lifecycle (BE-11), Staff Queues (BE-12), Inventory & Procurement (BE-13), and all remaining R1 production-core blockers.
 
+### Order Fulfilment, Evidence & Tracking (BE-16)
+
+Operational fulfilment transitions are strictly controlled via dedicated mutation endpoints to guarantee inventory integrity and secure evidence collection.
+
+- **Collection (`PATCH /api/orders/:id/collect`)**: Requires explicit identity verification metadata (`identityDocumentType`, `acknowledgedBy`). Completing collection immediately marks the order as delivered and consumes the allocated physical serials.
+- **Dispatch (`PATCH /api/orders/:id/dispatch`)**: Requires courier details and tracking references. It formally hands the physical inventory over to a 3rd party, consuming the local allocations.
+- **Delivery (`PATCH /api/orders/:id/deliver`)**: A standalone confirmation endpoint for previously dispatched orders to finalize the transit lifecycle.
+
+All fulfilment endpoints require a verified paid order, ensure inventory allocations are consumed exactly once, and generate comprehensive audit logs. Waybills, dispatch notes, and signed customer handover forms can be securely attached to the order via the Private Evidence API using the `dispatch` or `handover` purpose fields.
+
 ## Run locally
 
 ```powershell
