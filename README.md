@@ -549,6 +549,67 @@ reconstruction equal stored stock. A second approved apply creates no duplicate
 opening facts. Each apply stores immutable migration evidence and fails its
 transaction if reconstruction does not match exactly.
 
+### Organisation quotation-to-order conversion (BE-19)
+
+`POST /api/organisations` creates an organisation and its creator's `OWNER`
+membership atomically. `GET /api/organisations/mine` returns active memberships,
+while `GET` and `POST /api/organisations/:id/members` expose the controlled
+membership boundary. Member management is owner/admin scoped. Purchasing
+authority is always resolved from the active persisted membership: `OWNER`,
+`ADMIN`, and `BUYER` may purchase; `VIEWER`, revoked members, outsiders, and
+forged access-token role claims may not.
+
+New organisation procurement requests include `organisationId`; the supplied
+organisation name and type must match that server record. Staff-issued
+quotations inherit the organisation binding. After the request owner approves
+the current quote, an authorised organisation purchaser converts it with:
+
+```http
+POST /api/procurement/quotations/:id/convert
+Authorization: Bearer <access-token>
+Idempotency-Key: <stable-client-operation-key>
+Content-Type: application/json
+
+{
+  "organisationId": "<organisation-object-id>",
+  "expectedVersion": 1,
+  "paymentMethod": "bank_transfer",
+  "shippingAddress": {
+    "street": "12 Procurement Road",
+    "city": "Ibadan",
+    "state": "Oyo",
+    "postalCode": "200001",
+    "country": "Nigeria"
+  },
+  "purchaseOrderReference": "PO-ACME-2026-001"
+}
+```
+
+Conversion accepts only an approved, non-superseded, matching-version,
+unexpired quotation. A unique database constraint allows exactly one order per
+quotation. Identical idempotent replays return that order with
+`Idempotency-Replayed: true`; payload drift or another conversion key conflicts.
+The order, quote/request transitions, and allowlisted audit event commit in one
+MongoDB transaction, so required-audit or persistence failure leaves no partial
+order.
+
+The order's immutable `procurementSnapshot` is an explicit allowlist containing
+only organisation/request/quotation identifiers, quotation version, line items,
+subtotal, tax, fees, fulfilment charge, total, currency, terms version, warranty
+and support summaries, validity/approval timestamps, and the optional customer
+purchase-order reference. Totals and quote identity are derived from persisted
+quotation state; client-supplied financial fields are ignored. Internal
+idempotency fingerprints, conversion actor data, audit records, supplier data,
+cost prices, procurement operations, and membership internals are excluded.
+Invoices for B2B orders use this immutable snapshot and never depend on later
+quotation or catalogue changes.
+
+Run the focused suite only against an isolated MongoDB replica set:
+
+```bash
+MONGOMS_DOWNLOAD_DIR=/tmp/sanfaani-be19-mongo pnpm test:b2b-order-conversion
+```
+
 ## Run locally
 
 ```powershell

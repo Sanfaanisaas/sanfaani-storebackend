@@ -49,6 +49,9 @@ const allowlistedMetadata = {
   PURCHASE_ORDER_CLOSED: ["status", "reason"],
   PURCHASE_ORDER_RECEIVED: ["quantity", "status", "evidenceId", "serialized"],
   INVENTORY_MIGRATION_APPLIED: ["inspectedCount", "openingEntriesCreated", "reconstructionMismatched"],
+  ORGANISATION_CREATED: ["type"],
+  ORGANISATION_MEMBER_UPDATED: ["role", "canPurchase"],
+  B2B_QUOTATION_CONVERTED: ["organisationId", "orderId", "quotationVersion", "totalAmount", "currency"],
 };
 
 const sanitize = (action, metadata) => {

@@ -3,6 +3,8 @@ import AppError from "../utils/AppError.js";
 const invalid = (message) => new AppError("Request validation failed", 400, [{ code: "validation", message }]);
 import ProcurementRequest, { PROCUREMENT_REQUEST_STATUSES } from "../models/ProcurementRequest.js";
 import ProcurementQuotation from "../models/ProcurementQuotation.js";
+import Organisation from "../models/Organisation.js";
+import OrganisationMember from "../models/OrganisationMember.js";
 import Evidence from "../models/Evidence.js";
 import { createCustomerNotification } from "./notificationService.js";
 import { conflict, documentMetadata, fingerprint as createFingerprint, idText, isObjectId, pageInput, pagination, requireIdempotencyKey, unavailable } from "./customerDomainService.js";
@@ -10,6 +12,7 @@ import { writeAuditLog } from "./auditService.js";
 
 const requestDto = (item) => ({
   id: idText(item._id),
+  organisationId: item.organisation ? idText(item.organisation) : null,
   organisationName: item.organisationName,
   organisationType: item.organisationType,
   contactName: item.contactName,
@@ -51,6 +54,7 @@ const quoteDto = async (quote) => {
   return {
     id: idText(quote._id),
     requestId: idText(quote.request),
+    organisationId: quote.organisation ? idText(quote.organisation) : null,
     version: quote.version,
     lineItems: (quote.lineItems || []).map((line) => ({ description: line.description, quantity: line.quantity, unitPrice: line.unitPrice, totalAmount: line.totalAmount })),
     subtotal: quote.subtotal,
@@ -103,6 +107,7 @@ export const createRequest = async ({ owner, input, idempotencyKey }) => {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.contactEmail.trim())) throw invalid("Contact email is invalid");
   const requirements = ensureRequirements(input.requirements);
   const normalized = {
+    organisationId: input.organisationId || null,
     organisationName: input.organisationName.trim(),
     organisationType: input.organisationType,
     contactName: input.contactName.trim(),
@@ -124,6 +129,24 @@ export const createRequest = async ({ owner, input, idempotencyKey }) => {
   if (normalized.requiredBy && Number.isNaN(normalized.requiredBy.valueOf())) throw invalid("Required date is invalid");
   const hash = createFingerprint(normalized);
 
+  if (normalized.organisationId) {
+    if (!isObjectId(normalized.organisationId)) throw unavailable("Organisation");
+    const [organisation, membership] = await Promise.all([
+      Organisation.findOne({ _id: normalized.organisationId, status: "ACTIVE" }),
+      OrganisationMember.findOne({
+        organisation: normalized.organisationId,
+        user: owner,
+        status: "ACTIVE",
+        canPurchase: true,
+        role: { $in: ["OWNER", "ADMIN", "BUYER"] },
+      }),
+    ]);
+    if (!organisation || !membership) throw unavailable("Organisation");
+    if (organisation.normalizedName !== normalized.organisationName.toLowerCase().replace(/\s+/g, " ") || organisation.type !== normalized.organisationType) {
+      throw conflict("organisation_details_mismatch", "Organisation details must match the selected organisation");
+    }
+  }
+
   const existing = await ProcurementRequest.findOne({ customer: owner, idempotencyKey: key });
   if (existing) {
     if (existing.idempotencyFingerprint !== hash) throw conflict("procurement_idempotency_conflict", "This idempotency key is already associated with a different request");
@@ -131,7 +154,14 @@ export const createRequest = async ({ owner, input, idempotencyKey }) => {
   }
 
   try {
-    const request = await ProcurementRequest.create({ customer: owner, ...normalized, idempotencyKey: key, idempotencyFingerprint: hash });
+    const { organisationId, ...requestInput } = normalized;
+    const request = await ProcurementRequest.create({
+      customer: owner,
+      organisation: organisationId,
+      ...requestInput,
+      idempotencyKey: key,
+      idempotencyFingerprint: hash,
+    });
     await writeAuditLog(owner, "CUSTOMER_PROCUREMENT_REQUEST_CREATED", "ProcurementRequest", request._id, { status: request.status, requirementCount: requirements.length });
     return requestDto(request);
   } catch (error) {
@@ -297,6 +327,7 @@ export const createStaffQuotation = async ({ actor, requestId, input }) => {
   const quote = await ProcurementQuotation.create({
     request: request._id,
     customer: request.customer,
+    organisation: request.organisation || null,
     version: nextVersion,
     lineItems: lines,
     subtotal: input.subtotal,

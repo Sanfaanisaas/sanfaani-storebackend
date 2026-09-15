@@ -17,6 +17,33 @@ const orderItemSchema = new mongoose.Schema(
   { _id: false },
 );
 
+const procurementLineItemSchema = new mongoose.Schema({
+  description: { type: String, required: true, trim: true },
+  quantity: { type: Number, required: true, min: 1 },
+  unitPrice: { type: Number, required: true, min: 0 },
+  totalAmount: { type: Number, required: true, min: 0 },
+}, { _id: false });
+
+const procurementSnapshotSchema = new mongoose.Schema({
+  organisationId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  requestId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  quotationId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  quotationVersion: { type: Number, required: true, min: 1 },
+  lineItems: { type: [procurementLineItemSchema], required: true },
+  subtotal: { type: Number, required: true, min: 0 },
+  tax: { type: Number, required: true, min: 0 },
+  fees: { type: Number, required: true, min: 0 },
+  fulfilmentCharge: { type: Number, required: true, min: 0 },
+  totalAmount: { type: Number, required: true, min: 0 },
+  currency: { type: String, required: true, match: /^[A-Z]{3}$/ },
+  termsVersion: { type: String, required: true },
+  warrantySummary: { type: String, default: null },
+  supportSummary: { type: String, default: null },
+  validUntil: { type: Date, required: true },
+  approvedAt: { type: Date, required: true },
+  purchaseOrderReference: { type: String, default: null },
+}, { _id: false });
+
 const orderSchema = new mongoose.Schema(
   {
     userId: {
@@ -51,6 +78,22 @@ const orderSchema = new mongoose.Schema(
       type: String,
       enum: ["pending", "paid", "failed", "partially_refunded", "refunded"],
       default: "pending",
+    },
+    orderSource: {
+      type: String,
+      enum: ["CHECKOUT", "B2B_QUOTATION"],
+      default: "CHECKOUT",
+      immutable: true,
+    },
+    procurementSnapshot: {
+      type: procurementSnapshotSchema,
+      default: null,
+      immutable: true,
+    },
+    procurementConversion: {
+      idempotencyKey: { type: String, default: null, select: false, immutable: true },
+      idempotencyFingerprint: { type: String, default: null, select: false, immutable: true },
+      convertedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, select: false, immutable: true },
     },
     idempotencyKey: { type: String, trim: true, maxlength: 128 },
     requestFingerprint: { type: String, match: /^[a-f0-9]{64}$/ },
@@ -105,6 +148,37 @@ orderSchema.index(
   },
 );
 
+const touchesProcurementSnapshot = (update = {}) => {
+  const paths = [
+    ...Object.keys(update),
+    ...Object.values(update)
+      .filter((value) => value && typeof value === "object" && !Array.isArray(value))
+      .flatMap((value) => Object.keys(value)),
+  ];
+  return paths.some((path) => path === "procurementSnapshot" || path.startsWith("procurementSnapshot."));
+};
+
+orderSchema.pre("save", function protectProcurementSnapshot() {
+  if (!this.isNew && this.isModified("procurementSnapshot")) {
+    throw new Error("B2B procurement order snapshots are immutable");
+  }
+});
+for (const operation of ["updateOne", "updateMany", "findOneAndUpdate", "replaceOne"]) {
+  orderSchema.pre(operation, function protectProcurementSnapshotUpdate() {
+    if (touchesProcurementSnapshot(this.getUpdate())) {
+      throw new Error("B2B procurement order snapshots are immutable");
+    }
+  });
+}
+orderSchema.index(
+  { "procurementSnapshot.quotationId": 1 },
+  {
+    unique: true,
+    partialFilterExpression: { "procurementSnapshot.quotationId": { $type: "objectId" } },
+    name: "one_order_per_procurement_quotation",
+  },
+);
+
 orderSchema.methods.toPublicOrder = function () {
   return {
     id: this._id,
@@ -117,6 +191,8 @@ orderSchema.methods.toPublicOrder = function () {
     total: this.total,
     paymentMethod: this.paymentMethod,
     paymentStatus: this.paymentStatus,
+    orderSource: this.orderSource,
+    procurementSnapshot: this.procurementSnapshot || null,
     status: this.status,
     receiptUrl: this.receiptUrl,
     payOnPickupExpiresAt: this.payOnPickupExpiresAt,

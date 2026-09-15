@@ -12,14 +12,28 @@ const unavailable = () =>
     },
   ]);
 
-const snapshotFor = (order, paidAt = null) => ({
-  items: order.items.map((item) => ({
+const financialItemsFor = (order) => {
+  if (Array.isArray(order.items) && order.items.length > 0) return order.items.map((item) => ({
     name: item.nameSnapshot,
     sku: item.variantSku,
     unitAmount: item.priceSnapshot,
     quantity: item.quantity,
     lineTotal: item.priceSnapshot * item.quantity,
-  })),
+  }));
+  if (order?.orderSource === "B2B_QUOTATION" && order.procurementSnapshot?.lineItems?.length) {
+    return order.procurementSnapshot.lineItems.map((item, index) => ({
+      name: item.description,
+      sku: `B2B-${order.procurementSnapshot.quotationId}-${index + 1}`,
+      unitAmount: item.unitPrice,
+      quantity: item.quantity,
+      lineTotal: item.totalAmount,
+    }));
+  }
+  return [];
+};
+
+const snapshotFor = (order, paidAt = null) => ({
+  items: financialItemsFor(order),
   subtotal: order.subtotal,
   tax: order.tax,
   shipping: order.shippingCost,
@@ -29,7 +43,7 @@ const snapshotFor = (order, paidAt = null) => ({
 });
 
 export const canSnapshotFinancialOrder = (order) => {
-  const items = Array.isArray(order?.items) ? order.items : [];
+  const items = financialItemsFor(order);
   const amounts = [order?.subtotal, order?.tax, order?.shippingCost, order?.total];
   if (
     items.length === 0
@@ -38,16 +52,17 @@ export const canSnapshotFinancialOrder = (order) => {
 
   const subtotal = items.reduce((sum, item) => {
     if (
-      !Number.isSafeInteger(item?.priceSnapshot)
-      || item.priceSnapshot < 0
+      !Number.isSafeInteger(item?.unitAmount)
+      || item.unitAmount < 0
       || !Number.isSafeInteger(item?.quantity)
       || item.quantity < 1
-      || typeof item?.nameSnapshot !== "string"
-      || !item.nameSnapshot.trim()
-      || typeof item?.variantSku !== "string"
-      || !item.variantSku.trim()
+      || typeof item?.name !== "string"
+      || !item.name.trim()
+      || typeof item?.sku !== "string"
+      || !item.sku.trim()
+      || item.lineTotal !== item.unitAmount * item.quantity
     ) return Number.NaN;
-    return sum + item.priceSnapshot * item.quantity;
+    return sum + item.lineTotal;
   }, 0);
 
   return subtotal === order.subtotal
@@ -76,7 +91,7 @@ const createIfMissing = async ({ kind, order, payment = null, session }) => {
         order: order._id,
         payment: payment?._id || null,
         owner: order.userId,
-        currency: payment?.currency || "NGN",
+        currency: payment?.currency || order.procurementSnapshot?.currency || "NGN",
         issuedAt: new Date(),
         snapshot: snapshotFor(order, payment?.verifiedAt || null),
       },

@@ -1,5 +1,6 @@
 import { catchAsync } from "../utils/catchAsync.js";
 import * as procurement from "../services/procurementCustomerService.js";
+export { convertProcurementQuotation } from "./procurementConversionController.js";
 export const createCustomerProcurementRequest = catchAsync(async (req, res) => res.status(201).json({ success: true, data: await procurement.createRequest({ owner: req.user.id, input: req.body, idempotencyKey: req.get("Idempotency-Key") }) }));
 export const listCustomerProcurementRequests = catchAsync(async (req, res) => res.json({ success: true, data: await procurement.listRequests({ owner: req.user.id, query: req.query }) }));
 export const getCustomerProcurementRequest = catchAsync(async (req, res) => res.json({ success: true, data: await procurement.getRequest({ owner: req.user.id, id: req.params.id }) }));
