@@ -26,6 +26,8 @@ const allowlistedMetadata = {
   EVIDENCE_DELETED: ["subjectType", "purpose"],
   EVIDENCE_CLEANUP_COMPLETED: ["taskType", "attempts"],
   EVIDENCE_CLEANUP_EXHAUSTED: ["taskType", "attempts"],
+  BANK_TRANSFER_EVIDENCE_ATTACHED: ["amount", "currency"],
+  BANK_TRANSFER_VERIFIED: ["amount", "currency"],
   // ... existing metadata ...
   ORDER_DISPATCHED: ["allocationState"],
   ORDER_COLLECTED: ["allocationState"],

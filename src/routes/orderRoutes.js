@@ -6,6 +6,7 @@ import {
   checkEligiblePickup,
   verifyBankTransfer,
   generateReceiptPDF,
+  generateInvoicePDF,
   getOrderQueue,
   cancelOrder,
   dispatchOrder,
@@ -25,6 +26,7 @@ import {
 import { deliverOrder } from "../controllers/orderController.js";
 import { USER_ROLES } from "../utils/constants.js";
 import multer from "multer";
+import { evidenceUploadLimiter } from "../middleware/rateLimiter.js";
 
 // Disk is never an evidence store. Production upload persistence must be a private object-store adapter.
 const upload = multer({
@@ -72,19 +74,20 @@ router.get(
  *       404:
  *         description: Order not found
  */
-router.get("/:id", authenticate, getOrderById);
-
 /**
  * @swagger
  * /orders/eligible-pickup:
  *   get:
- *     summary: Check if order is eligible for pickup (Stub)
+ *     summary: Check persisted pay-on-pickup eligibility
+ *     description: Requires an owner-scoped orderId. Amount, address, payment method, policy, and expiry are read from server state; client-supplied financial values are ignored.
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Eligibility status
+ *       404:
+ *         description: Non-enumerating unavailable owner order
  */
 router.get(
   "/eligible-pickup",
@@ -93,22 +96,33 @@ router.get(
   checkEligiblePickup,
 );
 
+router.get("/:id/eligible-pickup", authenticate, checkEligiblePickup);
+
 /**
  * @swagger
  * /orders/{id}/verify-bank-transfer:
  *   patch:
- *     summary: Verify bank transfer payment (Admin only)
+ *     summary: Verify bank transfer payment evidence
+ *     description: Finance officer, operations manager, or super administrator only. Atomically settles the canonical Payment, updates the Order cache, allocates inventory, writes audits, and creates immutable invoice and receipt snapshots.
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Order verified successfully
+ *       403:
+ *         description: Finance or operations role required
+ *       404:
+ *         description: Order or active payment evidence unavailable
  */
 router.patch(
   "/:id/verify-bank-transfer",
   authenticate,
-  authorize(USER_ROLES.PRODUCT_ADMIN, USER_ROLES.SUPER_ADMIN),
+  authorize(
+    USER_ROLES.FINANCE_OFFICER,
+    USER_ROLES.OPS_MANAGER,
+    USER_ROLES.SUPER_ADMIN,
+  ),
   verifyBankTransfer,
 );
 
@@ -116,17 +130,21 @@ router.patch(
  * @swagger
  * /orders/{id}/upload-receipt:
  *   post:
- *     summary: Upload manual payment receipt
+ *     summary: Upload private bank-transfer evidence
+ *     description: Owner-only multipart upload. The object is stored privately, validated by file signature, linked to a server-derived pending Payment, and never marks the order paid.
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
  *     responses:
- *       200:
- *         description: Receipt uploaded successfully
+ *       201:
+ *         description: Evidence and pending canonical payment persisted
+ *       404:
+ *         description: Non-enumerating unavailable owner order
  */
 router.post(
   "/:id/upload-receipt",
   authenticate,
+  evidenceUploadLimiter,
   upload.single("receipt"),
   uploadReceipt,
 );
@@ -135,7 +153,8 @@ router.post(
  * @swagger
  * /orders/{id}/receipt:
  *   get:
- *     summary: Generate PDF receipt
+ *     summary: Download immutable verified-payment receipt PDF
+ *     description: Owner-only. A receipt is available only after canonical payment verification and is rendered from an immutable snapshot rather than mutable Order state.
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -144,6 +163,19 @@ router.post(
  *         description: PDF receipt streamed
  */
 router.get("/:id/receipt", authenticate, generateReceiptPDF);
+/**
+ * @swagger
+ * /orders/{id}/invoice:
+ *   get:
+ *     summary: Download immutable order invoice PDF
+ *     description: Owner-only and non-enumerating. The first successful request persists the immutable source snapshot used for every later rendering.
+ *     tags: [Orders]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Immutable invoice PDF }
+ *       404: { description: Non-enumerating unavailable owner order }
+ */
+router.get("/:id/invoice", authenticate, generateInvoicePDF);
 
 /**
  * @swagger
@@ -240,5 +272,9 @@ router.get(
   validate(getOrdersQueueQuerySchema, "query"),
   getOrderQueue,
 );
+
+// Keep parameter routes after every fixed path so values such as `queue` and
+// `eligible-pickup` can never be captured as order identifiers.
+router.get("/:id", authenticate, getOrderById);
 
 export default router;

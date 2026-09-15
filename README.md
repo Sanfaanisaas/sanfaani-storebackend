@@ -449,6 +449,48 @@ Please refer to these documents for the definition of done for Customer Domains 
 
 Operational fulfilment transitions are strictly controlled via dedicated mutation endpoints to guarantee inventory integrity and secure evidence collection.
 
+### Manual payments and immutable financial documents (BE-17)
+
+Bank-transfer proof is uploaded by the order owner with
+`POST /api/orders/:id/upload-receipt` as a single JPEG, PNG, or PDF `receipt`
+part. The object uses the private Evidence storage adapter, an opaque object
+key, signature-based file validation, and transactional Evidence metadata. The
+response contains safe evidence metadata only; it never contains the object
+key or storage credentials. Uploading proof creates or refreshes a pending
+canonical `Payment` derived from the stored order amount, currency, owner, and
+purpose. It never marks an order paid and cannot change the checkout-selected
+payment method.
+
+Only `finance_officer`, `ops_manager`, and `super_admin` may call
+`PATCH /api/orders/:id/verify-bank-transfer`. Verification requires active
+owner-bound evidence and atomically transitions the canonical Payment to
+`SUCCEEDED`, updates the Order payment cache, allocates reservations, writes
+allowlisted audit events, and creates immutable invoice and receipt snapshots.
+Customer, product-admin, store-operator, missing-evidence, invalid-state, and
+mismatched binding paths cannot settle payment.
+
+Pay-on-pickup eligibility is available at
+`GET /api/orders/:id/eligible-pickup` (or the compatibility endpoint
+`GET /api/orders/eligible-pickup?orderId=...`). Eligibility is calculated only
+from the authenticated owner's persisted order total, address, selected method,
+policy limit, and server-issued expiry. Query-string totals and addresses are
+not trusted. Checkout stores the expiry alongside eligible pay-on-pickup
+orders.
+
+`GET /api/orders/:id/invoice` and `GET /api/orders/:id/receipt` are owner-only,
+non-enumerating PDF endpoints. An invoice snapshots the order on first issue; a
+receipt is available only for a matching, fully captured canonical Payment.
+Documents contain integer minor-unit line and total amounts and are rendered
+from immutable persisted snapshots, so later Order changes cannot rewrite
+historical documents. Snapshots exclude provider references, evidence keys,
+storage details, audit internals, and mutable customer/device data.
+
+Run the focused BE-17 suite with:
+
+```bash
+MONGOMS_DOWNLOAD_DIR=/tmp/sanfaani-be17-mongo pnpm test:manual-payment-documents
+```
+
 - **Collection (`PATCH /api/orders/:id/collect`)**: Requires explicit identity verification metadata (`identityDocumentType`, `acknowledgedBy`). Completing collection immediately marks the order as delivered and consumes the allocated physical serials.
 - **Dispatch (`PATCH /api/orders/:id/dispatch`)**: Requires courier details and tracking references. It formally hands the physical inventory over to a 3rd party, consuming the local allocations.
 - **Delivery (`PATCH /api/orders/:id/deliver`)**: A standalone confirmation endpoint for previously dispatched orders to finalize the transit lifecycle.

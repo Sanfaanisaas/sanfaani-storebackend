@@ -7,7 +7,7 @@ const paymentEventSchema = new Schema({
   eventId: { type: String, required: true },
   // Provider event identifiers are not needed for a later provider lookup.  Keep
   // only their digest so that a database export cannot be replayed upstream.
-  providerEventDigest: { type: String, default: null, match: /^[a-f0-9]{64}$/ },
+  providerEventDigest: { type: String, match: /^[a-f0-9]{64}$/ },
   eventType: { type: String, required: true },
   previousStatus: { type: String, enum: PAYMENT_STATUSES, default: null },
   resultingStatus: { type: String, enum: PAYMENT_STATUSES, required: true },
@@ -48,6 +48,8 @@ const paymentSchema = new Schema({
   purpose: { type: String, required: true },
   status: { type: String, enum: PAYMENT_STATUSES, default: "PENDING" },
   verifiedAt: { type: Date, default: null },
+  verifiedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+  evidence: { type: Schema.Types.ObjectId, ref: "Evidence", default: null },
   // Legacy embedded records are retained for historical reads only. New A2
   // operations use the standalone Refund aggregate and never append here.
   refunds: { type: [{ idempotencyKey: { type: String, required: true }, amount: { type: Number, required: true, min: 1 }, status: { type: String, enum: ["REQUESTED", "PROVIDER_PENDING", "SUCCEEDED", "FAILED"], required: true }, requestedBy: { type: Schema.Types.ObjectId, ref: "User", required: true }, requestedAt: { type: Date, required: true } }], default: [] },
