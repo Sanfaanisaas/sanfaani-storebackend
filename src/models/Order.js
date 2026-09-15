@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { ORDER_STATUS } from "../utils/constants.js";
+import { policyAcceptanceSchema } from "./PolicyVersion.js";
 
 const orderItemSchema = new mongoose.Schema(
   {
@@ -121,6 +122,7 @@ const orderSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
+    policyAcceptances: { type: [policyAcceptanceSchema], default: [], immutable: true },
 
     // BE-16 Fulfilment & Identity Tracking
     fulfilment: {

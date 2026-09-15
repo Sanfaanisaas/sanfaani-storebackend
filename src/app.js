@@ -32,6 +32,7 @@ import customerServicesRoutes from "./routes/customerServicesRoutes.js";
 import maintenancePlanRoutes from "./routes/maintenancePlanRoutes.js";
 import organisationRoutes from "./routes/organisationRoutes.js";
 import staffIdentityRoutes from "./routes/staffIdentityRoutes.js";
+import contentRoutes from "./routes/contentRoutes.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -92,6 +93,7 @@ app.use("/api/services", customerServicesRoutes);
 app.use("/api/maintenance-plans", maintenancePlanRoutes);
 app.use("/api/organisations", organisationRoutes);
 app.use("/api/admin/staff", staffIdentityRoutes);
+app.use("/api/content", contentRoutes);
 
 // Handle unhandled routes
 app.all("/*path", (req, res, next) => {

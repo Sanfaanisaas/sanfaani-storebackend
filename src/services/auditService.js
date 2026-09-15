@@ -66,6 +66,17 @@ const allowlistedMetadata = {
   STAFF_ROLE_CHANGED: ["role", "reason"],
   STAFF_SUSPENDED: ["reason"],
   STAFF_REACTIVATED: ["reason"],
+  CONTENT_DRAFT_CREATED: ["version", "identity"],
+  CONTENT_SUBMITTED: ["version", "identity"],
+  CONTENT_APPROVED: ["version", "identity"],
+  CONTENT_PUBLISHED: ["version", "identity"],
+  CONTENT_ARCHIVED: ["version", "identity"],
+  POLICY_DRAFT_CREATED: ["version", "identity"],
+  POLICY_SUBMITTED: ["version", "identity"],
+  POLICY_APPROVED: ["version", "identity"],
+  POLICY_PUBLISHED: ["version", "identity"],
+  POLICY_ARCHIVED: ["version", "identity"],
+  POLICY_DELETED: ["version", "identity"],
 };
 
 const sanitize = (action, metadata) => {

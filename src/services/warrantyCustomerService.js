@@ -8,6 +8,7 @@ import { CLAIM_STATUS } from "../utils/constants.js";
 import { conflict, fingerprint as createFingerprint, idText, isObjectId, listEvidenceSummaries, pageInput, pagination, requireIdempotencyKey, unavailable } from "./customerDomainService.js";
 import { createCustomerNotification } from "./notificationService.js";
 import { writeAuditLog } from "./auditService.js";
+import { capturePolicyAcceptances } from "./contentService.js";
 
 const activeReturnStates = new Set(["SUBMITTED", "INSPECTION_REQUIRED", "UNDER_INSPECTION", "APPROVED", "REMEDY_IN_PROGRESS", "RESOLVED"]);
 const source = (warranty) => (warranty.order ? { sourceType: "order", sourceId: idText(warranty.order) } : { sourceType: "repair", sourceId: idText(warranty.repair) });
@@ -286,6 +287,7 @@ export const createCustomerReturn = async ({ owner, orderId, items, reason, idem
           throw conflict("return_item_ineligible", "One or more return items exceed remaining eligible quantity");
         }
       }
+      const policyAcceptances = await capturePolicyAcceptances("return", { session });
 
       [request] = await ReturnRequest.create(
         [
@@ -298,6 +300,7 @@ export const createCustomerReturn = async ({ owner, orderId, items, reason, idem
             idempotencyFingerprint: fingerprint,
             customerSafeTimeline: [{ status: "SUBMITTED", at: new Date(), message: "Return request submitted" }],
             nextAction: "We will review the returned-item request.",
+            policyAcceptances,
           },
         ],
         { session }

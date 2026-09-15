@@ -7,6 +7,7 @@ import { ORDER_STATUS } from "../utils/constants.js";
 import { writeAuditLog } from "./auditService.js";
 import { conflict, fingerprint, idText, requireIdempotencyKey, unavailable } from "./customerDomainService.js";
 import { requireActiveMember } from "./organisationService.js";
+import { capturePolicyAcceptances } from "./contentService.js";
 
 const addressSnapshot = (address) => ({
   street: address.street.trim(),
@@ -153,6 +154,7 @@ export const convertQuotationToOrder = async ({ actor, quotationId, input, idemp
         approvedAt: quotation.decision.at,
         purchaseOrderReference: normalized.purchaseOrderReference,
       };
+      const policyAcceptances = await capturePolicyAcceptances("b2b", { session });
 
       const [order] = await Order.create([{
         userId: actor,
@@ -172,6 +174,7 @@ export const convertQuotationToOrder = async ({ actor, quotationId, input, idemp
           idempotencyFingerprint: hash,
           convertedBy: actor,
         },
+        policyAcceptances,
       }], { session });
 
       quotation.conversionStatus = "CONVERTED";

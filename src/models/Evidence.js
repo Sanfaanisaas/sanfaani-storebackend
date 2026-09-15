@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { policyAcceptanceSchema } from "./PolicyVersion.js";
 
 const schema = new mongoose.Schema({
   subjectType: { type: String, enum: ["order", "repair", "claim", "return_request", "purchase_order", "support_ticket", "procurement_request", "procurement_quotation", "service_request"], required: true, index: true },
@@ -13,6 +14,7 @@ const schema = new mongoose.Schema({
   uploader: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   retentionState: { type: String, enum: ["ACTIVE", "DELETE_PENDING", "DELETED", "LEGAL_HOLD"], default: "ACTIVE" },
   deletedAt: { type: Date, default: null },
+  policyAcceptances: { type: [policyAcceptanceSchema], default: [], immutable: true },
 }, { timestamps: true });
 schema.index({ subjectType: 1, subject: 1, purpose: 1 });
 schema.index({ owner: 1, subjectType: 1, subject: 1, retentionState: 1 });

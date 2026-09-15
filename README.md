@@ -690,6 +690,51 @@ Run the focused suite only against an isolated MongoDB replica set:
 MONGOMS_DOWNLOAD_DIR=/tmp/sanfaani-be21-mongo pnpm test:staff-identity
 ```
 
+### Versioned content and policy publication (BE-22)
+
+Content pages and policy documents are immutable per-version records. Editors
+create drafts with a payload-bound `Idempotency-Key`, submit them for review,
+and a Product or Super Administrator independently approves and publishes
+them. The controlled lifecycle is `DRAFT → IN_REVIEW → APPROVED → PUBLISHED`;
+publishing a replacement transactionally marks the prior public version
+`SUPERSEDED`. Non-current versions may be archived. Every state change is
+audited and uses `expectedStateVersion` optimistic concurrency.
+
+Public reads require no credentials and return only the current published
+version through `GET /api/content/pages/:slug` or
+`GET /api/content/policies/:key`. Drafts, workflow state, authors, reviewers,
+idempotency data, and audit metadata are excluded. Preview and mutation routes
+under `/api/content/admin/*` require a Merchandiser, Product Administrator, or
+Super Administrator as appropriate; draft creators cannot approve their own
+version.
+
+The nine stable launch-policy keys are:
+
+- `terms_of_sale`
+- `warranty_policy`
+- `returns_refund_policy`
+- `repair_custody_terms`
+- `device_data_backup_acknowledgement`
+- `privacy_notice`
+- `cookie_analytics_notice`
+- `delivery_pickup_policy`
+- `b2b_quotation_terms`
+
+Checkout, repair intake, warranty, return, evidence, B2B procurement, and
+service records capture immutable `{ policyVersionId, key, version,
+acceptedAt }` snapshots from the currently published policy records. Existing
+records therefore retain the exact terms that applied even after publication
+of a replacement. A current policy cannot be deleted, and any superseded or
+archived policy referenced by one of these records is also deletion-protected.
+BE-28 readiness must confirm all nine keys have a published version before
+production activation.
+
+Run the focused suite only against an isolated MongoDB replica set:
+
+```bash
+MONGOMS_DOWNLOAD_DIR=/tmp/sanfaani-be22-mongo pnpm test:content-policy
+```
+
 ## Run locally
 
 ```powershell
