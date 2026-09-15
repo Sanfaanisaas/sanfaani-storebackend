@@ -275,7 +275,7 @@ test("4. Handover FSM requires strict identity verification and auto-generates a
   assert.equal(warrantyCount, 1);
 });
 
-test("5. Order Payment & Dispatch FSM strictly transitions verified offline payments", async () => {
+test("5. Order Payment & Dispatch FSM rejects unverified offline payments", async () => {
   const customerId = id();
   const productAdminId = id();
 
@@ -302,9 +302,10 @@ test("5. Order Payment & Dispatch FSM strictly transitions verified offline paym
     "patch",
     `/api/orders/${dbOrder._id}/verify-bank-transfer`,
   ).set(auth(productAdminId, "product_admin"));
-  assert.equal(verifyRes.status, 200);
-  assert.equal(verifyRes.body.data.paymentStatus, "paid");
-  assert.equal(verifyRes.body.data.status, ORDER_STATUS.PAID);
+  assert.equal(verifyRes.status, 403);
+  const unchanged = await Order.findById(dbOrder._id);
+  assert.equal(unchanged.paymentStatus, "pending");
+  assert.equal(unchanged.status, ORDER_STATUS.PENDING_PAYMENT);
 
   const unauthorizedDispatch = await req(
     "patch",
