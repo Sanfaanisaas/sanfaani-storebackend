@@ -29,6 +29,7 @@ const clarificationSchema = new mongoose.Schema({
 
 const schema = new mongoose.Schema({
   customer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true, immutable: true },
+  organisation: { type: mongoose.Schema.Types.ObjectId, ref: "Organisation", default: null, index: true, immutable: true },
   organisationName: { type: String, required: true, trim: true, maxlength: 160 },
   organisationType: { type: String, enum: ["business", "school", "nonprofit", "government", "other"], required: true },
   contactName: { type: String, required: true, trim: true, maxlength: 160 },
@@ -58,5 +59,6 @@ schema.pre("validate", function validateBudget() {
 });
 schema.index({ customer: 1, idempotencyKey: 1 }, { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } }, name: "customer_procurement_idempotency" });
 schema.index({ customer: 1, updatedAt: -1 }, { name: "customer_procurement_list" });
+schema.index({ organisation: 1, updatedAt: -1 }, { name: "organisation_procurement_list" });
 
 export default mongoose.model("ProcurementRequest", schema);

@@ -18,8 +18,8 @@ import {
   submitPurchaseOrder,
   updateSupplier,
 } from "../controllers/procurementController.js";
-import { createCustomerProcurementRequest, listCustomerProcurementRequests, getCustomerProcurementRequest, patchCustomerProcurementRequest, respondCustomerProcurementClarification, listCustomerProcurementQuotations, getCustomerProcurementQuotation, decideCustomerProcurementQuotation, createStaffCustomerProcurementQuotation } from "../controllers/procurementCustomerController.js";
-import { createProcurementRequestSchema, createStaffProcurementQuotationSchema, decideProcurementQuotationSchema, getProcurementRequestsQuerySchema, patchProcurementRequestSchema, procurementClarificationParamSchema, procurementQuotationIdParamSchema, procurementRequestIdParamSchema, respondProcurementClarificationSchema } from "../utils/validators/procurementCustomerValidators.js";
+import { createCustomerProcurementRequest, listCustomerProcurementRequests, getCustomerProcurementRequest, patchCustomerProcurementRequest, respondCustomerProcurementClarification, listCustomerProcurementQuotations, getCustomerProcurementQuotation, decideCustomerProcurementQuotation, createStaffCustomerProcurementQuotation, convertProcurementQuotation } from "../controllers/procurementCustomerController.js";
+import { convertProcurementQuotationSchema, createProcurementRequestSchema, createStaffProcurementQuotationSchema, decideProcurementQuotationSchema, getProcurementRequestsQuerySchema, patchProcurementRequestSchema, procurementClarificationParamSchema, procurementQuotationIdParamSchema, procurementRequestIdParamSchema, respondProcurementClarificationSchema } from "../utils/validators/procurementCustomerValidators.js";
 import {
   createPurchaseOrderSchema,
   createSupplierSchema,
@@ -427,6 +427,28 @@ router.post(
   validate(procurementQuotationIdParamSchema, "params"),
   validate(decideProcurementQuotationSchema, "body"),
   decideCustomerProcurementQuotation("approve")
+);
+
+/**
+ * @swagger
+ * /procurement/quotations/{id}/convert:
+ *   post:
+ *     summary: Convert an approved B2B quotation to an organisation order
+ *     description: Active OWNER, ADMIN, or BUYER membership is resolved from server state. The approved, current, unexpired quotation is converted once in a transaction to an immutable order snapshot. Requires Idempotency-Key.
+ *     tags: [Procurement]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       201: { description: Organisation order created }
+ *       404: { description: Non-enumerating quotation or membership unavailable }
+ *       409: { description: Expired, stale, inactive, idempotency-conflicting, or already-converted quotation }
+ */
+router.post(
+  "/quotations/:id/convert",
+  authenticate,
+  customerMutationLimiter,
+  validate(procurementQuotationIdParamSchema, "params"),
+  validate(convertProcurementQuotationSchema, "body"),
+  convertProcurementQuotation,
 );
 
 /**
