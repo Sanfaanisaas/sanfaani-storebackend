@@ -11,6 +11,8 @@ export const serviceQuoteIdParamSchema = z.object({
   id: objectIdSchema,
 });
 
+export const serviceExecutionIdParamSchema = z.object({ id: objectIdSchema });
+
 export const createServiceRequestSchema = z.object({
   serviceType: z.enum(SERVICE_TYPES, {
     errorMap: () => ({ message: "Invalid service type" }),
@@ -68,12 +70,34 @@ export const createStaffServiceQuoteSchema = z.object({
     currency: z.string().regex(/^[A-Z]{3}$/).optional().default("NGN"),
     dueBeforeWork: z.boolean().optional().default(false),
   }).optional(),
-  paymentState: z.object({
-    status: z.enum(["not_required", "pending", "partially_confirmed", "confirmed", "failed"]).optional().default("not_required"),
-    confirmedAmount: z.preprocess((val) => parseInt(val, 10), z.number().int().min(0)).optional().default(0),
-    remainingAmount: z.preprocess((val) => parseInt(val, 10), z.number().int().min(0)).optional().default(0),
-  }).optional(),
-});
+}).strict();
+
+const expectedVersion = z.preprocess((value) => Number(value), z.number().int().min(0));
+const date = z.preprocess((value) => new Date(value), z.date());
+
+export const scheduleServiceSchema = z.object({
+  expectedVersion,
+  assignedTechnicianId: objectIdSchema,
+  scheduledStartAt: date,
+  scheduledEndAt: date,
+  mode: z.enum(["onsite", "drop_off", "pickup", "remote"]),
+  location: z.string().trim().max(300).optional().nullable(),
+  deviceSafeLabel: z.string().trim().min(1).max(200),
+  internalNotes: z.string().trim().max(3000).optional().nullable(),
+}).strict().refine((value) => value.scheduledEndAt > value.scheduledStartAt, { message: "Scheduled end must be after scheduled start", path: ["scheduledEndAt"] });
+
+export const startServiceSchema = z.object({ expectedVersion }).strict();
+
+export const completeServiceSchema = z.object({
+  expectedVersion,
+  workSummary: z.string().trim().min(3).max(2000),
+  customerVisiblePartsAndServices: z.array(z.string().trim().min(1).max(300)).max(50).optional(),
+  warrantyOutcome: z.string().trim().max(500).optional().nullable(),
+  nextRecommendedMaintenance: z.string().trim().max(500).optional().nullable(),
+  internalNotes: z.string().trim().max(3000).optional().nullable(),
+}).strict();
+
+export const cancelServiceSchema = z.object({ expectedVersion, reason: z.string().trim().min(3).max(500) }).strict();
 
 export const getServiceRequestsQuerySchema = z.object({
   page: z.preprocess((val) => parseInt(val, 10), z.number().int().min(1).default(1)).optional(),

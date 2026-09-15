@@ -3,7 +3,8 @@ import { SERVICE_TYPES, SERVICE_REQUEST_STATUSES } from "./ServiceRequest.js";
 
 const schema = new mongoose.Schema({
   customer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true, immutable: true },
-  serviceRequest: { type: mongoose.Schema.Types.ObjectId, ref: "ServiceRequest", required: true, index: true, immutable: true },
+  serviceRequest: { type: mongoose.Schema.Types.ObjectId, ref: "ServiceRequest", required: true, unique: true, immutable: true },
+  serviceExecution: { type: mongoose.Schema.Types.ObjectId, ref: "ServiceExecution", default: null, immutable: true },
   serviceReference: { type: String, required: true, trim: true, maxlength: 80, immutable: true },
   serviceType: { type: String, enum: SERVICE_TYPES, required: true, immutable: true },
   deviceSafeLabel: { type: String, required: true, trim: true, maxlength: 200 },
@@ -15,6 +16,13 @@ const schema = new mongoose.Schema({
   nextRecommendedMaintenance: { type: String, trim: true, maxlength: 500, default: null },
   authorizedDocuments: { type: [mongoose.Schema.Types.ObjectId], ref: "Evidence", default: [] },
 }, { timestamps: true });
+
+schema.pre(["updateOne", "updateMany", "findOneAndUpdate", "replaceOne"], function rejectHistoryMutation() {
+  throw new Error("Service history is immutable");
+});
+schema.pre("save", function rejectSavedHistoryMutation() {
+  if (!this.isNew) throw new Error("Service history is immutable");
+});
 
 schema.index({ customer: 1, performedAt: -1 }, { name: "customer_service_history_list" });
 

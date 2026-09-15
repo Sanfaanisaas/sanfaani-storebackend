@@ -6,14 +6,14 @@ This matrix maps the domains defined in the _Sanfaani Store & Repair Complete We
 | :--------------------- | :------------------------- | :------ | :--------------------------------------- |
 | **FOUND**              | BE-14                      | R1      | Traced via BE-14                         |
 | **AUTH**               | BE-01, BE-21               | R1      | Core complete; Admin pending BE-21       |
-| **CAT / PDP**          | BE-02, BE-15               | R1      | Core complete; Search pending BE-15      |
+| **CAT / PDP**          | BE-02, BE-15               | R1      | Complete                                 |
 | **CART / CHECKOUT**    | BE-03, BE-16               | R1      | Complete                                 |
 | **ORDER**              | BE-16, BE-17, BE-19        | R1      | Fulfilment, payment, and B2B conversion complete |
 | **PAY**                | BE-17                      | R1      | Covered by BE-17                         |
 | **INVENTORY**          | BE-13, BE-18               | R1      | Operational lifecycle covered; final certification remains in BE-27 |
 | **QUOTE / B2B**        | BE-19                      | R1 / R3 | R1 controlled organisation conversion complete; mature R3 accounts remain BE-30 |
-| **REPAIR / TECH / QC** | BE-11, BE-20               | R1      | Base complete; Service pending BE-20     |
-| **WARRANTY / RETURN**  | BE-10, BE-20               | R1      | Base complete; Service pending BE-20     |
+| **REPAIR / TECH / QC** | BE-11, BE-20               | R1      | Repair and controlled service execution complete |
+| **WARRANTY / RETURN**  | BE-10, BE-20               | R1      | Customer claims plus service-history warranty outcomes complete |
 | **SUPPORT**            | BE-10, BE-23               | R1      | Tickets complete; Delivery pending BE-23 |
 | **CONTENT**            | BE-22                      | R1      | Pending BE-22                            |
 | **ANALYTICS**          | BE-24                      | R1      | Pending BE-24                            |
