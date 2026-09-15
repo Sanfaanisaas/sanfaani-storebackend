@@ -11,12 +11,12 @@ This register is the single source of truth for backend implementation tickets, 
 | **BE-12** | Staff Queues & Operations Routing                                                            | Completed |
 | **BE-13** | Inventory, Serials & Procurement Foundation                                                  | Completed |
 | **BE-14** | Reconcile backend ticket identity and restore full PRD traceability                          | Active    |
-| **BE-15** | Complete catalogue search and discovery contracts                                            | Pending   |
-| **BE-16** | Close order fulfilment, evidence, and tracking integrity                                     | Pending   |
+| **BE-15** | Complete catalogue search and discovery contracts                                            | Completed |
+| **BE-16** | Close order fulfilment, evidence, and tracking integrity                                     | Completed |
 | **BE-17** | Complete bank-transfer, pay-on-pickup, invoice, and receipt truth                            | Completed |
 | **BE-18** | Complete inventory and procurement operations                                                | Completed |
 | **BE-19** | Convert B2B quotations into controlled organisation orders                                   | Completed |
-| **BE-20** | Upgrade, setup, service execution, and maintenance-plan administration                       | Pending   |
+| **BE-20** | Upgrade, setup, service execution, and maintenance-plan administration                       | Completed |
 | **BE-21** | Controlled staff identity, role, and permission administration                               | Pending   |
 | **BE-22** | Versioned content and policy publication contracts                                           | Pending   |
 | **BE-23** | Real notification delivery and mobile push-token lifecycle                                   | Pending   |

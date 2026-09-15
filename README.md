@@ -610,6 +610,46 @@ Run the focused suite only against an isolated MongoDB replica set:
 MONGOMS_DOWNLOAD_DIR=/tmp/sanfaani-be19-mongo pnpm test:b2b-order-conversion
 ```
 
+### Service execution and maintenance plans (BE-20)
+
+Upgrade, setup, data-migration, and preventive-maintenance work cannot begin
+from a request alone. Operations must schedule the latest approved,
+non-superseded, unexpired service quotation and assign a persisted technician
+account. If the accepted quotation requires a deposit before work, its
+server-controlled payment state must confirm the full required amount.
+Quotation-creation input cannot set payment state.
+
+The execution lifecycle is explicit and forward-only:
+
+```text
+APPROVED request -> SCHEDULED -> IN_PROGRESS -> COMPLETED
+                              \-> CANCELLED
+```
+
+Scheduling, starting, completion, and cancellation require an
+`Idempotency-Key` and an expected aggregate version. Assigned technicians may
+start and complete their work; Operations Managers and Super Administrators
+may operate the workflow, while cancellation remains operations-only. The
+service request, execution, notification, audit event, and completion history
+commit transactionally. Completion creates exactly one immutable
+`ServiceHistoryEntry`; private scheduling and technician notes never appear in
+customer history or API DTOs.
+
+Operations Managers and Super Administrators administer plans through
+`POST/GET /api/maintenance-plans`, `PATCH /api/maintenance-plans/:id`, and the
+explicit `cancel` and `renew` actions. Customer reads remain owner-scoped under
+`/api/maintenance-plans/mine` and `/api/maintenance-plans/:id`. Updates use
+optimistic concurrency. Renewal creates a new linked term instead of silently
+rewriting the old commercial record; cancellation and renewal are idempotent
+and audited. Recurring billing, organisation-wide plan automation, and service
+analytics remain deferred to BE-30.
+
+Run the focused suite only against an isolated MongoDB replica set:
+
+```bash
+MONGOMS_DOWNLOAD_DIR=/tmp/sanfaani-be20-mongo pnpm test:service-execution-plans
+```
+
 ## Run locally
 
 ```powershell

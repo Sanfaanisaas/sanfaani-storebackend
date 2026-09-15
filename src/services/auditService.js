@@ -52,6 +52,14 @@ const allowlistedMetadata = {
   ORGANISATION_CREATED: ["type"],
   ORGANISATION_MEMBER_UPDATED: ["role", "canPurchase"],
   B2B_QUOTATION_CONVERTED: ["organisationId", "orderId", "quotationVersion", "totalAmount", "currency"],
+  SERVICE_EXECUTION_SCHEDULED: ["quotationVersion"],
+  SERVICE_EXECUTION_STARTED: [],
+  SERVICE_EXECUTION_COMPLETED: ["serviceRequestId"],
+  SERVICE_EXECUTION_CANCELLED: ["reason"],
+  MAINTENANCE_PLAN_CREATED: ["customerId", "status"],
+  MAINTENANCE_PLAN_UPDATED: ["version"],
+  MAINTENANCE_PLAN_CANCELLED: ["reason"],
+  MAINTENANCE_PLAN_RENEWED: ["renewedFromId"],
 };
 
 const sanitize = (action, metadata) => {

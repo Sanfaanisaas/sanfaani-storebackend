@@ -265,7 +265,9 @@ export const createStaffServiceQuote = async ({ actor, requestId, input }) => {
     estimatedDays: input.estimatedDays,
     expiresAt: input.expiresAt,
     depositRequirement: input.depositRequirement || { required: false, amount: 0, currency: "NGN", dueBeforeWork: false },
-    paymentState: input.paymentState || { status: "not_required", confirmedAmount: 0, remainingAmount: 0 },
+    paymentState: input.depositRequirement?.required
+      ? { status: "pending", confirmedAmount: 0, remainingAmount: input.depositRequirement.amount }
+      : { status: "not_required", confirmedAmount: 0, remainingAmount: 0 },
   });
 
   request.status = "AWAITING_DECISION";
@@ -302,6 +304,9 @@ const planDto = (plan) => ({
   currency: plan.currency,
   termsVersion: plan.termsVersion,
   cancellationInstructions: plan.cancellationInstructions,
+  version: plan.version || 0,
+  cancellation: plan.status === "CANCELLED" ? { at: plan.cancelledAt || null, reason: plan.cancellationReason || null } : null,
+  renewedFromId: plan.renewedFrom ? idText(plan.renewedFrom) : null,
   createdAt: plan.createdAt,
   updatedAt: plan.updatedAt,
 });

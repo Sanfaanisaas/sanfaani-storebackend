@@ -1230,6 +1230,44 @@ const options = {
             updatedAt: { type: "string", format: "date-time" },
           },
         },
+        ServiceExecution: {
+          type: "object",
+          required: ["id", "serviceRequestId", "customer", "quotation", "assignedTechnicianId", "schedule", "deviceSafeLabel", "status", "version", "timestamps"],
+          additionalProperties: false,
+          properties: {
+            id: { type: "string" },
+            serviceRequestId: { type: "string" },
+            customer: { type: "string", description: "Customer identifier; staff execution response only" },
+            quotation: {
+              type: "object",
+              additionalProperties: false,
+              required: ["id", "version", "totalAmount", "currency", "estimatedDays"],
+              properties: {
+                id: { type: "string" },
+                version: { type: "integer" },
+                totalAmount: { type: "integer" },
+                currency: { type: "string" },
+                estimatedDays: { type: "integer" },
+              },
+            },
+            assignedTechnicianId: { type: "string" },
+            schedule: {
+              type: "object",
+              additionalProperties: false,
+              required: ["startAt", "endAt", "mode", "location"],
+              properties: {
+                startAt: { type: "string", format: "date-time" },
+                endAt: { type: "string", format: "date-time" },
+                mode: { type: "string", enum: ["onsite", "drop_off", "pickup", "remote"] },
+                location: { type: ["string", "null"] },
+              },
+            },
+            deviceSafeLabel: { type: "string" },
+            status: { type: "string", enum: ["SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"] },
+            version: { type: "integer" },
+            timestamps: { type: "object" },
+          },
+        },
         MaintenancePlan: {
           type: "object",
           required: [
@@ -1263,9 +1301,18 @@ const options = {
             currency: { type: "string" },
             termsVersion: { type: "string" },
             cancellationInstructions: { type: "string" },
+            version: { type: "integer" },
+            cancellation: { type: ["object", "null"] },
+            renewedFromId: { type: ["string", "null"] },
             createdAt: { type: "string", format: "date-time" },
             updatedAt: { type: "string", format: "date-time" },
           },
+        },
+        MaintenancePlanAdmin: {
+          allOf: [
+            { $ref: "#/components/schemas/MaintenancePlan" },
+            { type: "object", required: ["customerId", "version"], properties: { customerId: { type: "string" } } },
+          ],
         },
       },
     },
