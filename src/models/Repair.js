@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 const { Schema } = mongoose;
 import { REPAIR_STATUS } from "../utils/constants.js";
+import { policyAcceptanceSchema } from "./PolicyVersion.js";
 
 const RepairSchema = new Schema({
   customer: {
@@ -22,6 +23,7 @@ const RepairSchema = new Schema({
     type: Boolean,
     required: true,
   },
+  policyAcceptances: { type: [policyAcceptanceSchema], default: [], immutable: true },
   status: {
     type: String,
     enum: Object.values(REPAIR_STATUS),

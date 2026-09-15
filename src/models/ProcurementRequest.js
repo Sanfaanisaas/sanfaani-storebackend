@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { policyAcceptanceSchema } from "./PolicyVersion.js";
 
 export const PROCUREMENT_REQUEST_STATUSES = Object.freeze([
   "SUBMITTED", "UNDER_REVIEW", "CLARIFICATION_REQUIRED", "QUOTATION_ISSUED",
@@ -52,6 +53,7 @@ const schema = new mongoose.Schema({
   clarifications: { type: [clarificationSchema], default: [] },
   idempotencyKey: { type: String, trim: true, minlength: 1, maxlength: 128, immutable: true },
   idempotencyFingerprint: { type: String, match: /^[a-f0-9]{64}$/, immutable: true },
+  policyAcceptances: { type: [policyAcceptanceSchema], default: [], immutable: true },
 }, { timestamps: true });
 
 schema.pre("validate", function validateBudget() {

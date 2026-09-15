@@ -18,7 +18,7 @@ This register is the single source of truth for backend implementation tickets, 
 | **BE-19** | Convert B2B quotations into controlled organisation orders                                   | Completed |
 | **BE-20** | Upgrade, setup, service execution, and maintenance-plan administration                       | Completed |
 | **BE-21** | Controlled staff identity, role, and permission administration                               | Completed |
-| **BE-22** | Versioned content and policy publication contracts                                           | Pending   |
+| **BE-22** | Versioned content and policy publication contracts                                           | Completed |
 | **BE-23** | Real notification delivery and mobile push-token lifecycle                                   | Pending   |
 | **BE-24** | Privacy-safe analytics and operational KPI reporting                                         | Pending   |
 | **BE-25** | Versioned OpenAPI artifact and generated-client compatibility                                | Pending   |

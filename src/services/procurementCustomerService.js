@@ -9,6 +9,7 @@ import Evidence from "../models/Evidence.js";
 import { createCustomerNotification } from "./notificationService.js";
 import { conflict, documentMetadata, fingerprint as createFingerprint, idText, isObjectId, pageInput, pagination, requireIdempotencyKey, unavailable } from "./customerDomainService.js";
 import { writeAuditLog } from "./auditService.js";
+import { capturePolicyAcceptances } from "./contentService.js";
 
 const requestDto = (item) => ({
   id: idText(item._id),
@@ -155,12 +156,14 @@ export const createRequest = async ({ owner, input, idempotencyKey }) => {
 
   try {
     const { organisationId, ...requestInput } = normalized;
+    const policyAcceptances = await capturePolicyAcceptances("b2b");
     const request = await ProcurementRequest.create({
       customer: owner,
       organisation: organisationId,
       ...requestInput,
       idempotencyKey: key,
       idempotencyFingerprint: hash,
+      policyAcceptances,
     });
     await writeAuditLog(owner, "CUSTOMER_PROCUREMENT_REQUEST_CREATED", "ProcurementRequest", request._id, { status: request.status, requirementCount: requirements.length });
     return requestDto(request);

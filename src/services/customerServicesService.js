@@ -10,6 +10,7 @@ import { SERVICE_RESPONSIBILITY_POLICY } from "./customerPolicyService.js";
 import { createCustomerNotification } from "./notificationService.js";
 import { conflict, documentMetadata, fingerprint, idText, isObjectId, listEvidenceSummaries, pageInput, pagination, requireIdempotencyKey, unavailable } from "./customerDomainService.js";
 import { writeAuditLog } from "./auditService.js";
+import { capturePolicyAcceptances } from "./contentService.js";
 
 const requestDto = async (item) => ({
   id: idText(item._id),
@@ -112,9 +113,13 @@ export const createServiceRequest = async ({ customer, input, idempotencyKey }) 
   }
 
   try {
+    const policyAcceptances = await capturePolicyAcceptances("service");
+    const responsibilityPolicy = policyAcceptances.find((item) => item.key === "repair_custody_terms");
     const request = await ServiceRequest.create({
       customer,
       ...normalized,
+      responsibilityPolicyVersion: responsibilityPolicy?.version?.toString() || normalized.responsibilityPolicyVersion,
+      policyAcceptances,
       idempotencyKey: key,
       idempotencyFingerprint: hash,
       status: "ASSESSMENT_REQUIRED",

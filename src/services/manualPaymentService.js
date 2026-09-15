@@ -15,6 +15,7 @@ import {
 import { createVerifiedFinancialDocuments } from "./financialDocumentService.js";
 import { allocateOrderReservations } from "./reservationService.js";
 import { queueEvidenceCleanup } from "./evidenceCleanupService.js";
+import { capturePolicyAcceptances } from "./contentService.js";
 
 const unavailable = () =>
   new AppError("Bank-transfer payment is unavailable", 404, [
@@ -71,6 +72,7 @@ export const attachBankTransferEvidence = async ({ orderId, ownerId, file }) => 
         .select("+paymentEvidence")
         .session(session);
       if (!order) throw unavailable();
+      const policyAcceptances = await capturePolicyAcceptances("evidence", { session });
 
       const [evidence] = await Evidence.create(
         [
@@ -82,6 +84,7 @@ export const attachBankTransferEvidence = async ({ orderId, ownerId, file }) => 
             ...validated,
             objectKey: key,
             uploader: ownerId,
+            policyAcceptances,
           },
         ],
         { session },
