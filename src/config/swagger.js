@@ -31,6 +31,12 @@ const options = {
           name: "X-Guidance-Resume-Token",
           description: "Opaque guest guidance session resume credential.",
         },
+        staffInvitationToken: {
+          type: "apiKey",
+          in: "header",
+          name: "X-Staff-Invitation-Token",
+          description: "Opaque, expiring, one-time staff activation credential.",
+        },
       },
       schemas: {
         StandardError: {
@@ -176,6 +182,35 @@ const options = {
                 },
               },
             },
+          },
+        },
+        StaffAccount: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "name", "email", "phone", "role", "status", "permissions", "version", "roleChangedAt", "statusChangedAt", "createdAt", "updatedAt"],
+          properties: {
+            id: { type: "string" },
+            name: { type: "string" },
+            email: { type: "string", format: "email" },
+            phone: { type: ["string", "null"] },
+            role: { type: "string", enum: ["sales_advisor", "store_operator", "technician", "qc_officer", "inventory_officer", "support_officer", "finance_officer", "merchandiser", "ops_manager", "product_admin", "tech_admin", "super_admin"] },
+            status: { type: "string", enum: ["INVITED", "ACTIVE", "SUSPENDED", "DISABLED"] },
+            permissions: { type: "array", items: { type: "string" } },
+            version: { type: "integer", minimum: 0 },
+            roleChangedAt: { type: ["string", "null"], format: "date-time" },
+            statusChangedAt: { type: ["string", "null"], format: "date-time" },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
+          },
+        },
+        StaffRolePermission: {
+          type: "object",
+          additionalProperties: false,
+          required: ["role", "permissions", "privileged"],
+          properties: {
+            role: { type: "string" },
+            permissions: { type: "array", items: { type: "string" } },
+            privileged: { type: "boolean" },
           },
         },
         PublicQuoteTracking: {

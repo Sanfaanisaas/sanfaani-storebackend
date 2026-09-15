@@ -37,11 +37,12 @@
     "test:stock-reconstruction": "node --test src/scripts/test-stock-reconstruction.js",
     "test:b2b-order-conversion": "node --test src/scripts/test-b2b-order-conversion.js",
     "test:service-execution-plans": "node --test src/scripts/test-service-execution-and-plans.js",
+    "test:staff-identity": "node --test src/scripts/test-staff-identity-administration.js",
     "test:openapi": "node --test src/scripts/test-openapi-contract.js",
     "test:contracts": "node --test src/scripts/test-shared-contracts.js",
     "test:security": "node --test src/scripts/test-security-regressions.js",
     "test:traceability": "node --test src/scripts/test-prd-traceability.js",
-    "test:ci": "pnpm test:auth-session && pnpm test:catalogue && pnpm test:catalogue-search && pnpm test:cart-checkout && pnpm test:repair-tracking && pnpm test:quote-lifecycle && pnpm test:payment-transitions && pnpm test:payments && pnpm test:repair-gates && pnpm test:fulfilment && pnpm test:order-fulfilment && pnpm test:manual-payment-documents && pnpm test:evidence-storage && pnpm test:customer-warranties && pnpm test:customer-returns && pnpm test:support-notifications && pnpm test:customer-guidance && pnpm test:customer-procurement && pnpm test:customer-services && pnpm test:customer-repairs && pnpm test:repair-evidence && pnpm test:staff-queues && pnpm test:inventory-procurement && pnpm test:inventory-operations && pnpm test:stock-reconstruction && pnpm test:b2b-order-conversion && pnpm test:service-execution-plans && pnpm test:openapi && pnpm test:contracts && pnpm test:security && pnpm test:traceability",
+    "test:ci": "pnpm test:auth-session && pnpm test:catalogue && pnpm test:catalogue-search && pnpm test:cart-checkout && pnpm test:repair-tracking && pnpm test:quote-lifecycle && pnpm test:payment-transitions && pnpm test:payments && pnpm test:repair-gates && pnpm test:fulfilment && pnpm test:order-fulfilment && pnpm test:manual-payment-documents && pnpm test:evidence-storage && pnpm test:customer-warranties && pnpm test:customer-returns && pnpm test:support-notifications && pnpm test:customer-guidance && pnpm test:customer-procurement && pnpm test:customer-services && pnpm test:customer-repairs && pnpm test:repair-evidence && pnpm test:staff-queues && pnpm test:inventory-procurement && pnpm test:inventory-operations && pnpm test:stock-reconstruction && pnpm test:b2b-order-conversion && pnpm test:service-execution-plans && pnpm test:staff-identity && pnpm test:openapi && pnpm test:contracts && pnpm test:security && pnpm test:traceability",
     "inventory:migrate": "node src/scripts/migrate-inventory.js",
     "cleanup:evidence": "node src/scripts/cleanup-orphaned-evidence.js"
   },

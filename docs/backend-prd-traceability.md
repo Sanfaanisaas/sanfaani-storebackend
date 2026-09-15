@@ -5,7 +5,7 @@ This matrix maps the domains defined in the _Sanfaani Store & Repair Complete We
 | PRD Domain             | Backend Ticket(s)          | Release | Status / Evidence Link                   |
 | :--------------------- | :------------------------- | :------ | :--------------------------------------- |
 | **FOUND**              | BE-14                      | R1      | Traced via BE-14                         |
-| **AUTH**               | BE-01, BE-21               | R1      | Core complete; Admin pending BE-21       |
+| **AUTH**               | BE-01, BE-21               | R1      | Customer sessions and controlled staff administration complete |
 | **CAT / PDP**          | BE-02, BE-15               | R1      | Complete                                 |
 | **CART / CHECKOUT**    | BE-03, BE-16               | R1      | Complete                                 |
 | **ORDER**              | BE-16, BE-17, BE-19        | R1      | Fulfilment, payment, and B2B conversion complete |
