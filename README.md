@@ -650,6 +650,46 @@ Run the focused suite only against an isolated MongoDB replica set:
 MONGOMS_DOWNLOAD_DIR=/tmp/sanfaani-be20-mongo pnpm test:service-execution-plans
 ```
 
+### Controlled staff identity and permissions (BE-21)
+
+Public `/api/auth/register` always creates a customer account. Staff identities
+are provisioned only by Product Administrators or Super Administrators through
+`POST /api/admin/staff/invitations`. The response returns a 256-bit Base64URL
+activation token exactly once; only its SHA-256 digest is stored. The token is
+bound to one invited account, expires after 48 hours, and is consumed through
+`POST /api/auth/staff-invitations/accept` using the
+`X-Staff-Invitation-Token` header. Missing, random, expired, and already-used
+tokens share the same non-enumerating response.
+Product or Super Administrators may rotate an unaccepted invitation through
+`POST /api/admin/staff/:id/invitations`; rotation revokes every earlier active
+token and returns the replacement only on its initial response.
+
+The permission register at `GET /api/admin/staff/roles` is application-owned
+and read-only. Product Administrators may manage ordinary operational roles.
+Operations Manager, Product Administrator, Technical Administrator, and Super
+Administrator assignments require a Super Administrator. Administrators
+cannot alter their own role or suspension state through these endpoints.
+
+Role changes and suspension/reactivation require the current administrative
+version. Each transition increments both the administrative version and the
+account's private authentication version, transactionally revokes every active
+refresh-token family, and writes an allowlisted audit event. Access tokens
+issued by this API carry the authentication version; middleware resolves the
+persisted role and active status, so stale role claims and tokens belonging to
+suspended accounts fail immediately. Reactivation does not restore prior
+sessions.
+
+Staff list/detail projections expose only identity, role, account state,
+effective application permissions, concurrency version, and safe timestamps.
+Password hashes, activation-token digests, idempotency fingerprints, session
+identifiers, status reasons, and audit internals are excluded.
+
+Run the focused suite only against an isolated MongoDB replica set:
+
+```bash
+MONGOMS_DOWNLOAD_DIR=/tmp/sanfaani-be21-mongo pnpm test:staff-identity
+```
+
 ## Run locally
 
 ```powershell

@@ -52,9 +52,9 @@ export const register = catchAsync(async (req, res) => {
 
 export const login = catchAsync(async (req, res) => {
   const { email, password } = req.body;
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email }).select("+authVersion");
   const matches = await bcrypt.compare(password, user?.passwordHash || DUMMY_PASSWORD_HASH);
-  if (!user || !matches) {
+  if (!user || !matches || user.status !== "ACTIVE") {
     await recordSecurityEvent({
       event: "login_failed", user: user?._id, req, metadata: { reason: "invalid_credentials" },
     });

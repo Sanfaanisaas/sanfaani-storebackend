@@ -60,6 +60,12 @@ const allowlistedMetadata = {
   MAINTENANCE_PLAN_UPDATED: ["version"],
   MAINTENANCE_PLAN_CANCELLED: ["reason"],
   MAINTENANCE_PLAN_RENEWED: ["renewedFromId"],
+  STAFF_INVITED: ["role"],
+  STAFF_INVITATION_ROTATED: ["role"],
+  STAFF_INVITATION_ACCEPTED: ["role"],
+  STAFF_ROLE_CHANGED: ["role", "reason"],
+  STAFF_SUSPENDED: ["reason"],
+  STAFF_REACTIVATED: ["reason"],
 };
 
 const sanitize = (action, metadata) => {
