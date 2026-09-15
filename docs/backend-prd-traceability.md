@@ -10,7 +10,7 @@ This matrix maps the domains defined in the _Sanfaani Store & Repair Complete We
 | **CART / CHECKOUT**    | BE-03, BE-16               | R1      | Complete                                 |
 | **ORDER**              | BE-16, BE-17, BE-19        | R1      | Fulfilment/payment covered; B2B conversion pending BE-19 |
 | **PAY**                | BE-17                      | R1      | Covered by BE-17                         |
-| **INVENTORY**          | BE-13, BE-18               | R1      | Base complete; Ops pending BE-18         |
+| **INVENTORY**          | BE-13, BE-18               | R1      | Operational lifecycle covered; final certification remains in BE-27 |
 | **QUOTE / B2B**        | BE-19                      | R1 / R3 | Quoting complete; B2B pending BE-19      |
 | **REPAIR / TECH / QC** | BE-11, BE-20               | R1      | Base complete; Service pending BE-20     |
 | **WARRANTY / RETURN**  | BE-10, BE-20               | R1      | Base complete; Service pending BE-20     |

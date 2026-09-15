@@ -264,20 +264,32 @@ export const consumeOrderAllocations = async (
 
   if (serials && serials.length > 0) {
     const InventoryUnit = mongoose.model("InventoryUnit");
-    const units = await InventoryUnit.find({
-      serialNumber: { $in: serials },
-      state: { $in: ["SELLABLE", "ALLOCATED"] },
-    }).session(session);
-
-    if (units.length !== serials.length)
+    const normalizedSerials = serials.map((serial) => serial.trim().toUpperCase());
+    if (new Set(normalizedSerials).size !== normalizedSerials.length)
       throw conflict(
         "invalid_serials",
         "One or more serials are invalid, unavailable, or already consumed",
       );
-
-    for (const unit of units) {
-      unit.state = "CONSUMED";
-      await unit.save({ session });
+    for (const serial of normalizedSerials) {
+      const unit = await InventoryUnit.findOneAndUpdate(
+        {
+          serialNumber: serial,
+          state: { $in: ["SELLABLE", "ALLOCATED"] },
+        },
+        {
+          $set: {
+            state: "CONSUMED",
+            lastMovementAt: new Date(),
+            lastMovementBy: actorId,
+          },
+        },
+        { new: true, session, runValidators: true },
+      );
+      if (!unit)
+        throw conflict(
+          "invalid_serials",
+          "One or more serials are invalid, unavailable, or already consumed",
+        );
       await writeAuditLog(
         actorId,
         "INVENTORY_UNIT_CONSUMED",

@@ -44,6 +44,12 @@ const schema = new mongoose.Schema(
       index: true,
     },
     sourceReference: { type: String, maxlength: 128, default: null },
+    lastMovementAt: { type: Date, default: null },
+    lastMovementBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   { timestamps: true },
 );
@@ -55,4 +61,5 @@ schema.index(
     name: "unique_inventory_unit_serial",
   },
 );
+schema.index({ location: 1, variant: 1, state: 1 }, { name: "inventory_unit_location_variant_state" });
 export default mongoose.model("InventoryUnit", schema);

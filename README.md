@@ -497,6 +497,58 @@ MONGOMS_DOWNLOAD_DIR=/tmp/sanfaani-be17-mongo pnpm test:manual-payment-documents
 
 All fulfilment endpoints require a verified paid order, ensure inventory allocations are consumed exactly once, and generate comprehensive audit logs. Waybills, dispatch notes, and signed customer handover forms can be securely attached to the order via the Private Evidence API using the `dispatch` or `handover` purpose fields.
 
+### Inventory and procurement operations (BE-18)
+
+BE-18 closes the internal inventory lifecycle with staff-only, validated APIs.
+Supplier and commercial purchase-order data are never mounted on customer
+routes. Inventory officers may read suppliers, manage purchase orders, receive
+approved quantities, transfer units, record counts, and perform evidence-backed
+adjustments. Supplier creation/update/deactivation, purchase-order approval,
+cancellation/explicit closure, and discrepancy resolution require
+`ops_manager` or `super_admin` authority.
+
+Purchase orders use controlled `DRAFT -> PENDING_APPROVAL -> APPROVED ->
+RECEIVING -> CLOSED` transitions, with `CANCELLED` allowed only before receipt.
+Every receipt requires retained purchase-order evidence and an idempotency key.
+Non-serialized receipts update aggregate stock once. Serialized receipts create
+quarantined units and zero-delta ledger facts; a passed inspection plus an
+explicit quarantine release is required before each unit becomes sellable.
+Transfer, return-to-stock, release, adjustment, and count-reconciliation paths
+use conditional state predicates so concurrent or repeated requests cannot
+move or release the same unit twice.
+
+Stock counts require an active location, a bounded reason, retained evidence,
+and a payload-bound idempotency key. A mismatch creates one `OPEN`
+`StockDiscrepancy`. Only Operations Managers and Super Administrators can
+resolve it with `ADJUST_STOCK` or `ACCEPT_NO_CHANGE`; the decision, reason, and
+resolution evidence are retained. Any resulting stock delta, its immutable
+`StockLedger` fact, and its allowlisted audit event commit in one MongoDB
+transaction.
+
+Run the BE-18 suites only against an isolated MongoDB replica set:
+
+```bash
+MONGOMS_DOWNLOAD_DIR=/tmp/sanfaani-be18-mongo pnpm test:inventory-operations
+MONGOMS_DOWNLOAD_DIR=/tmp/sanfaani-be18-mongo pnpm test:stock-reconstruction
+```
+
+The inventory migration is dry-run by default. Apply mode is blocked unless an
+approver, backup evidence reference, and rollback runbook reference are all
+provided:
+
+```bash
+pnpm inventory:migrate
+pnpm inventory:migrate -- --apply \
+  --approved-by <staff-object-id> \
+  --backup-reference <immutable-backup-reference> \
+  --rollback-reference <approved-rollback-runbook-reference>
+```
+
+The apply inserts only the opening-balance facts needed to make ledger
+reconstruction equal stored stock. A second approved apply creates no duplicate
+opening facts. Each apply stores immutable migration evidence and fails its
+transaction if reconstruction does not match exactly.
+
 ## Run locally
 
 ```powershell

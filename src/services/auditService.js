@@ -35,6 +35,20 @@ const allowlistedMetadata = {
   ORDER_CANCELLED: ["actorRole"],
   INVENTORY_ALLOCATION_CONSUMED: ["orderId", "quantity"],
   INVENTORY_UNIT_CONSUMED: ["orderId", "serial"],
+  STOCK_MOVEMENT_RECORDED: ["delta", "reason", "resultingStock", "sourceType"],
+  INVENTORY_UNIT_TRANSITIONED: ["action", "reason", "evidenceId", "fromState", "toState"],
+  STOCK_COUNT_RECORDED: ["expectedQuantity", "countedQuantity", "status", "reason", "evidenceId"],
+  STOCK_DISCREPANCY_RESOLVED: ["resolution", "variance", "reason", "evidenceId"],
+  SUPPLIER_CREATED: ["active"],
+  SUPPLIER_UPDATED: ["fields"],
+  SUPPLIER_DEACTIVATED: ["reason"],
+  PURCHASE_ORDER_CREATED: ["status", "lineCount"],
+  PURCHASE_ORDER_SUBMITTED: ["status"],
+  PURCHASE_ORDER_APPROVED: ["status"],
+  PURCHASE_ORDER_CANCELLED: ["status", "reason"],
+  PURCHASE_ORDER_CLOSED: ["status", "reason"],
+  PURCHASE_ORDER_RECEIVED: ["quantity", "status", "evidenceId", "serialized"],
+  INVENTORY_MIGRATION_APPLIED: ["inspectedCount", "openingEntriesCreated", "reconstructionMismatched"],
 };
 
 const sanitize = (action, metadata) => {
