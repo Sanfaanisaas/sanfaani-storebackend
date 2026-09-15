@@ -15,5 +15,11 @@ export function isPayOnPickupEligible(orderData) {
   // or expect the client to pass a zone identifier.
   // For this implementation, we'll check if the city (normalized) is in eligible zones.
   
-  return total <= MAX_TOTAL && ELIGIBLE_ZONES.includes(deliveryZone);
+  const expiresAt = orderData.payOnPickupExpiresAt;
+  const unexpired = !expiresAt || new Date(expiresAt).getTime() > Date.now();
+  return Number.isSafeInteger(total)
+    && total >= 0
+    && total <= MAX_TOTAL
+    && ELIGIBLE_ZONES.includes(deliveryZone)
+    && unexpired;
 }

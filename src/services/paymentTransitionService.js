@@ -10,6 +10,7 @@ import { writeAuditLog } from "./auditService.js";
 import { createOrTouchReconciliationCase, digestProviderIdentifier } from "./reconciliationService.js";
 import { evaluateRepairFinanceGate } from "./repairFinanceService.js";
 import { allocateOrderReservations, releaseOrderReservations } from "./reservationService.js";
+import { canSnapshotFinancialOrder, createVerifiedFinancialDocuments } from "./financialDocumentService.js";
 
 const PAYMENT_SUCCESS = new Set(["SUCCEEDED", "PARTIALLY_REFUNDED"]);
 const PAYMENT_TERMINAL = new Set(["SUCCEEDED", "FAILED", "CANCELLED", "REFUNDED", "DISPUTED"]);
@@ -241,6 +242,13 @@ export const applyVerifiedPaymentEvent = async ({ paymentId, providerEventId, ev
       const updated = await Order.findOneAndUpdate({ _id: subject.order._id, userId: payment.owner, paymentStatus: "pending" }, { $set: { paymentStatus: "paid", status: ORDER_STATUS.PAID } }, { returnDocument: "after", session });
       if (!updated) throw conflict("payment_subject_unavailable", "The payment subject is unavailable");
       await allocateOrderReservations(updated._id, payment.owner, session);
+      // Legacy rows may predate immutable order-line snapshots. Their valid
+      // payment transition must remain available, while new checkout orders
+      // always satisfy the documentability predicate and receive documents in
+      // this same transaction.
+      if (canSnapshotFinancialOrder(updated)) {
+        await createVerifiedFinancialDocuments({ order: updated, payment, session });
+      }
     } else await recalculateRepairFinance(subject.repair, session);
     await writeAuditLog(payment.owner, "PAYMENT_SETTLED", "Payment", payment._id, { subjectType: payment.subjectType, amount: payment.amount, currency: payment.currency }, session);
     return { payment, settled: true };

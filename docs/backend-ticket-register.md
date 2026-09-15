@@ -13,7 +13,7 @@ This register is the single source of truth for backend implementation tickets, 
 | **BE-14** | Reconcile backend ticket identity and restore full PRD traceability                          | Active    |
 | **BE-15** | Complete catalogue search and discovery contracts                                            | Pending   |
 | **BE-16** | Close order fulfilment, evidence, and tracking integrity                                     | Pending   |
-| **BE-17** | Complete bank-transfer, pay-on-pickup, invoice, and receipt truth                            | Pending   |
+| **BE-17** | Complete bank-transfer, pay-on-pickup, invoice, and receipt truth                            | Completed |
 | **BE-18** | Complete inventory and procurement operations                                                | Pending   |
 | **BE-19** | Convert B2B quotations into controlled organisation orders                                   | Pending   |
 | **BE-20** | Upgrade, setup, service execution, and maintenance-plan administration                       | Pending   |

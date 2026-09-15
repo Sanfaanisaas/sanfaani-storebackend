@@ -8,8 +8,8 @@ This matrix maps the domains defined in the _Sanfaani Store & Repair Complete We
 | **AUTH**               | BE-01, BE-21               | R1      | Core complete; Admin pending BE-21       |
 | **CAT / PDP**          | BE-02, BE-15               | R1      | Core complete; Search pending BE-15      |
 | **CART / CHECKOUT**    | BE-03, BE-16               | R1      | Complete                                 |
-| **ORDER**              | BE-16, BE-17, BE-19        | R1      | Partial; Evidence pending BE-16          |
-| **PAY**                | BE-17                      | R1      | Bank-transfer pending BE-17              |
+| **ORDER**              | BE-16, BE-17, BE-19        | R1      | Fulfilment/payment covered; B2B conversion pending BE-19 |
+| **PAY**                | BE-17                      | R1      | Covered by BE-17                         |
 | **INVENTORY**          | BE-13, BE-18               | R1      | Base complete; Ops pending BE-18         |
 | **QUOTE / B2B**        | BE-19                      | R1 / R3 | Quoting complete; B2B pending BE-19      |
 | **REPAIR / TECH / QC** | BE-11, BE-20               | R1      | Base complete; Service pending BE-20     |
