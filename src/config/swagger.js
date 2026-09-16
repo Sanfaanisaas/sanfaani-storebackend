@@ -932,6 +932,11 @@ const options = {
           additionalProperties: false,
           properties: { id: { type: "string" }, notificationId: { type: "string" }, channel: { enum: ["email", "push"] }, status: { type: "string" }, attempts: { type: "integer" }, lastErrorCategory: { type: ["string", "null"] }, createdAt: { type: "string", format: "date-time" }, updatedAt: { type: "string", format: "date-time" } },
         },
+        AnalyticsEventReceipt: {
+          type: "object",
+          required: ["accepted"], additionalProperties: false,
+          properties: { accepted: { type: "boolean" }, id: { type: "string" }, occurredAt: { type: "string", format: "date-time" } },
+        },
         GuidanceRecommendation: {
           type: "object",
           required: ["variant", "score", "factors", "availability"],

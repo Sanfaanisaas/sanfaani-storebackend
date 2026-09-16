@@ -16,7 +16,7 @@ This matrix maps the domains defined in the _Sanfaani Store & Repair Complete We
 | **WARRANTY / RETURN**  | BE-10, BE-20               | R1      | Customer claims plus service-history warranty outcomes complete |
 | **SUPPORT**            | BE-10, BE-23               | R1      | Customer notifications and durable delivery complete |
 | **CONTENT**            | BE-22                      | R1      | Versioned pages, nine launch policies, publication workflow, and immutable acceptance snapshots complete |
-| **ANALYTICS**          | BE-24                      | R1      | Pending BE-24                            |
+| **ANALYTICS**          | BE-24                      | R1      | Consent-aware event collection and aggregate KPI reporting complete |
 | **DEVOPS / SEC**       | BE-25, BE-26, BE-27, BE-28 | R1      | Pending BE-25 through BE-28              |
 | **MOBILE**             | BE-23, BE-29               | R1 / R2 | R1 push-token lifecycle complete; R2 mobile recovery remains BE-29 |
 | **SEARCH**             | BE-15, BE-31               | R1 / R4 | Backend discovery pending BE-15          |
