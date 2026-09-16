@@ -124,6 +124,10 @@ The delivery worker (`pnpm notification:process`) claims each pending record ato
 
 Trusted server code may record the listed commerce, repair, support, inventory, guidance, and service events. Public callers cannot forge those events. `GET /api/analytics/kpis` is limited to operations managers and super administrators and returns only windowed aggregate event counts—never events, identifiers, or raw analytics properties.
 
+## Versioned API contract (BE-25)
+
+`openapi/sanfaani-api.v1.json` is the committed OpenAPI 3.1 v1 artifact. Export it deterministically with `pnpm openapi:export`; `pnpm openapi:check` regenerates it in a temporary path and fails on drift. CI runs that check before tests. Every route operation has a stable `operationId` and a standard error response, so generated web and mobile clients can depend on the v1 contract. Breaking changes require a new API version or an explicit migration policy; they must not silently replace v1.
+
 ## Repair tracking and quotes (BE-04 / BE-05)
 
 `POST /api/repairs` is an authenticated customer route. It atomically creates
