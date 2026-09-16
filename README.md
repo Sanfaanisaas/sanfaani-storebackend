@@ -118,6 +118,12 @@ The delivery worker (`pnpm notification:process`) claims each pending record ato
 
 `POST /api/push-devices` registers an owner-scoped installation using `Idempotency-Key`. The raw device ID and push token never appear in API DTOs or persistence: their HMAC digests support lookup, while the push token is AES-256-GCM encrypted at rest. `DELETE /api/push-devices/:id` is owner-scoped and non-enumerating. `POST /api/auth/logout` may include `X-Push-Device-Id` to revoke that owner's installation. Generated notification links are server-side allowlisted paths with no query strings, fragments, or secrets.
 
+## Privacy-safe analytics (BE-24)
+
+`POST /api/analytics/events` accepts only consented, allowlisted product events and small purpose-limited properties. It rejects tokens, credentials, serials, free-form device data, notes, payment payloads, and direct identifiers. Authenticated accounts and anonymous installation identifiers are HMAC-pseudonymized before storage; analytics records expire after 90 days and remain separate from audit and security telemetry.
+
+Trusted server code may record the listed commerce, repair, support, inventory, guidance, and service events. Public callers cannot forge those events. `GET /api/analytics/kpis` is limited to operations managers and super administrators and returns only windowed aggregate event counts—never events, identifiers, or raw analytics properties.
+
 ## Repair tracking and quotes (BE-04 / BE-05)
 
 `POST /api/repairs` is an authenticated customer route. It atomically creates
