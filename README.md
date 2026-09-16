@@ -128,6 +128,12 @@ Trusted server code may record the listed commerce, repair, support, inventory, 
 
 `openapi/sanfaani-api.v1.json` is the committed OpenAPI 3.1 v1 artifact. Export it deterministically with `pnpm openapi:export`; `pnpm openapi:check` regenerates it in a temporary path and fails on drift. CI runs that check before tests. Every route operation has a stable `operationId` and a standard error response, so generated web and mobile clients can depend on the v1 contract. Breaking changes require a new API version or an explicit migration policy; they must not silently replace v1.
 
+## Reliability and recovery (BE-26)
+
+`GET /api/health` is liveness only and does not contact external dependencies. `GET /api/ready` checks MongoDB connectivity and required configuration while returning only sanitized dependency states. Deployment traffic must be gated on readiness, not merely liveness.
+
+The backup command requires a dedicated 64-hex `BACKUP_ENCRYPTION_KEY`, invokes `mongodump` through argument-safe process spawning, encrypts the archive with AES-256-GCM, writes a SHA-256 integrity sidecar, and never prints the database URI. Recovery, rollback, and provider-outage steps are in `docs/runbooks/`; a restore must be rehearsed against an isolated database before any production recovery.
+
 ## Repair tracking and quotes (BE-04 / BE-05)
 
 `POST /api/repairs` is an authenticated customer route. It atomically creates
