@@ -77,6 +77,10 @@ const allowlistedMetadata = {
   POLICY_PUBLISHED: ["version", "identity"],
   POLICY_ARCHIVED: ["version", "identity"],
   POLICY_DELETED: ["version", "identity"],
+  CUSTOMER_NOTIFICATION_CREATED: ["type", "resourceType"],
+  NOTIFICATION_CONSENT_UPDATED: ["channels", "categories"],
+  PUSH_DEVICE_REGISTERED: ["platform", "rotated"],
+  PUSH_DEVICE_REVOKED: ["reason"],
 };
 
 const sanitize = (action, metadata) => {

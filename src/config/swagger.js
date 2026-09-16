@@ -880,6 +880,7 @@ const options = {
             "safePreview",
             "resourceType",
             "resourceId",
+            "deepLink",
             "readAt",
             "createdAt",
             "mandatory",
@@ -892,6 +893,7 @@ const options = {
             safePreview: { type: "string" },
             resourceType: { type: "string" },
             resourceId: { type: "string" },
+            deepLink: { type: "string", pattern: "^/[A-Za-z0-9/_-]+$" },
             readAt: { type: ["string", "null"], format: "date-time" },
             createdAt: { type: "string", format: "date-time" },
             expiresAt: { type: ["string", "null"], format: "date-time" },
@@ -913,6 +915,22 @@ const options = {
             optionalCategories: { type: "object" },
             channels: { type: "object" },
           },
+        },
+        PushDevice: {
+          type: "object",
+          required: ["id", "platform", "label", "active", "lastSeenAt", "createdAt", "updatedAt"],
+          additionalProperties: false,
+          properties: {
+            id: { type: "string" }, platform: { enum: ["ios", "android", "web"] }, label: { type: "string" },
+            active: { type: "boolean" }, lastSeenAt: { type: ["string", "null"], format: "date-time" },
+            createdAt: { type: "string", format: "date-time" }, updatedAt: { type: "string", format: "date-time" },
+          },
+        },
+        NotificationDelivery: {
+          type: "object",
+          required: ["id", "notificationId", "channel", "status", "attempts", "createdAt", "updatedAt"],
+          additionalProperties: false,
+          properties: { id: { type: "string" }, notificationId: { type: "string" }, channel: { enum: ["email", "push"] }, status: { type: "string" }, attempts: { type: "integer" }, lastErrorCategory: { type: ["string", "null"] }, createdAt: { type: "string", format: "date-time" }, updatedAt: { type: "string", format: "date-time" } },
         },
         GuidanceRecommendation: {
           type: "object",

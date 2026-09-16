@@ -20,6 +20,7 @@ const schema = new mongoose.Schema({
     sms: { type: Boolean, default: false },
     push: { type: Boolean, default: false },
   },
+  consentUpdatedAt: { type: Date, default: Date.now },
 }, { timestamps: true });
 
 export default mongoose.model("NotificationPreference", schema);

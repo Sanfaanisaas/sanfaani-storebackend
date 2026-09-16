@@ -14,6 +14,8 @@ const schema = new mongoose.Schema({
   resourceType: { type: String, enum: CUSTOMER_NOTIFICATION_RESOURCE_TYPES, required: true, immutable: true },
   resourceId: { type: mongoose.Schema.Types.ObjectId, required: true, immutable: true },
   mandatory: { type: Boolean, default: false, immutable: true },
+  category: { type: String, required: true, immutable: true },
+  deepLink: { type: String, required: true, match: /^\/[A-Za-z0-9/_-]+$/, immutable: true },
   readAt: { type: Date, default: null },
   expiresAt: { type: Date, default: null, index: true },
   eventKey: { type: String, required: true, maxlength: 160, immutable: true, select: false },
