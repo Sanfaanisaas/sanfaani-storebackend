@@ -1422,4 +1422,19 @@ const options = {
   apis: ["./src/routes/*.js"],
 };
 
-export const swaggerSpec = swaggerJSDoc(options);
+const normalizedOperationId = (method, path) => `${method}${path.replace(/\{([^}]+)\}/g, "By_$1").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "")}`;
+const generated = swaggerJSDoc(options);
+for (const [path, pathItem] of Object.entries(generated.paths || {})) {
+  for (const method of ["get", "post", "put", "patch", "delete"]) {
+    if (!pathItem[method]) continue;
+    pathItem[method].operationId ||= normalizedOperationId(method, path);
+    pathItem[method].responses ||= { 200: { description: "Success" } };
+    pathItem[method].responses.default ||= { $ref: "#/components/responses/StandardError" };
+  }
+}
+generated.components.responses ||= {};
+generated.components.responses.StandardError = {
+  description: "Standard API error envelope",
+  content: { "application/json": { schema: { $ref: "#/components/schemas/StandardError" } } },
+};
+export const swaggerSpec = generated;
