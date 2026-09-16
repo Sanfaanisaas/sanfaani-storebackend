@@ -19,6 +19,7 @@ The application requires these variables at startup:
 - `PAYSTACK_CALLBACK_URL`: absolute callback URL required by the environment schema
 - `REPAIR_TRACKING_TOKEN_SECRET`: a distinct 32+ character server secret used
   only to HMAC repair-tracking tokens; raw tracking tokens are never stored
+- `PUSH_TOKEN_ENCRYPTION_KEY`: a 64-character hexadecimal AES-256 key for encrypted push-device tokens
 
 The following variables are optional:
 
@@ -108,6 +109,14 @@ Paystack variables in the deployment environment; never put a real Paystack
 secret in `.env.example` or commit it to Git.
 
 Never commit `.env` or real credentials. The repository ignores `.env`; `.env.example` contains documentation-only placeholders and is safe to commit.
+
+## Notification delivery and push devices (BE-23)
+
+Customer notification preferences persist `email` and `push` consent for optional categories. Security, payment, and transactional notices remain mandatory: they cannot be disabled and atomically create an inbox notification plus durable email/push outbox records. Optional categories with withdrawn consent create neither record.
+
+The delivery worker (`pnpm notification:process`) claims each pending record atomically, uses bounded exponential retry (five attempts), and then records a sanitized dead-letter category. Providers are configured only through deployment environment variables; test providers are injected, so CI never contacts an email or push provider. Provider response IDs are hashed before persistence and provider errors are not stored.
+
+`POST /api/push-devices` registers an owner-scoped installation using `Idempotency-Key`. The raw device ID and push token never appear in API DTOs or persistence: their HMAC digests support lookup, while the push token is AES-256-GCM encrypted at rest. `DELETE /api/push-devices/:id` is owner-scoped and non-enumerating. `POST /api/auth/logout` may include `X-Push-Device-Id` to revoke that owner's installation. Generated notification links are server-side allowlisted paths with no query strings, fragments, or secrets.
 
 ## Repair tracking and quotes (BE-04 / BE-05)
 

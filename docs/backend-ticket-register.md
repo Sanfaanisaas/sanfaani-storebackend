@@ -19,7 +19,7 @@ This register is the single source of truth for backend implementation tickets, 
 | **BE-20** | Upgrade, setup, service execution, and maintenance-plan administration                       | Completed |
 | **BE-21** | Controlled staff identity, role, and permission administration                               | Completed |
 | **BE-22** | Versioned content and policy publication contracts                                           | Completed |
-| **BE-23** | Real notification delivery and mobile push-token lifecycle                                   | Pending   |
+| **BE-23** | Real notification delivery and mobile push-token lifecycle                                   | Completed |
 | **BE-24** | Privacy-safe analytics and operational KPI reporting                                         | Pending   |
 | **BE-25** | Versioned OpenAPI artifact and generated-client compatibility                                | Pending   |
 | **BE-26** | Production reliability, backup, restore, monitoring, and rollback                            | Pending   |

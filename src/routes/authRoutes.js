@@ -3,6 +3,7 @@ import {
   listSessions, login, logout, refresh, register, revokeAllSessions, revokeSession,
 } from "../controllers/authController.js";
 import { authenticate } from "../middleware/authenticate.js";
+import { optionalAccessAuthentication } from "../middleware/optionalAuthenticate.js";
 import { protectCookieAuth } from "../middleware/csrfOrigin.js";
 import { authLimiter, refreshLimiter } from "../middleware/rateLimiter.js";
 import { validate } from "../middleware/validate.js";
@@ -76,7 +77,7 @@ router.post("/refresh", protectCookieAuth, refreshLimiter, refresh);
  *     responses:
  *       200: { description: Logout complete, including when the cookie was absent or invalid }
  */
-router.post("/logout", protectCookieAuth, logout);
+router.post("/logout", protectCookieAuth, optionalAccessAuthentication, logout);
 
 /**
  * @swagger
