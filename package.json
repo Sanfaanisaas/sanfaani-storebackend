@@ -42,6 +42,7 @@
     "test:notification-delivery": "node --test src/scripts/test-notification-delivery.js",
     "test:analytics": "node --test src/scripts/test-analytics-contract.js",
     "test:generated-client": "node --test src/scripts/test-generated-client-contract.js",
+    "test:readiness": "node --test src/scripts/test-readiness-contract.js",
     "test:openapi": "node --test src/scripts/test-openapi-contract.js",
     "test:contracts": "node --test src/scripts/test-shared-contracts.js",
     "test:security": "node --test src/scripts/test-security-regressions.js",
