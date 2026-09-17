@@ -1,16 +1,20 @@
 import { Router } from "express";
 import { authenticate, authorize } from "../middleware/authenticate.js";
 import { optionalAccessAuthentication } from "../middleware/optionalAuthenticate.js";
-import { repairTrackingIssuanceLimiter, repairTrackingLimiter, repairTrackingRotationLimiter } from "../middleware/rateLimiter.js";
+import {
+  repairTrackingIssuanceLimiter,
+  repairTrackingLimiter,
+  repairTrackingRotationLimiter,
+} from "../middleware/rateLimiter.js";
 import { validate } from "../middleware/validate.js";
-import { 
-  createRepairSchema, 
-  getRepairsQuerySchema 
+import {
+  createRepairSchema,
+  getRepairsQuerySchema,
 } from "../utils/validators/repairValidators.js";
-import { 
-  createRepair, 
-  intakeRepair, 
-  assignTechnician, 
+import {
+  createRepair,
+  intakeRepair,
+  assignTechnician,
   recordDiagnosis,
   createQuote,
   approveQuote,
@@ -23,7 +27,7 @@ import {
   trackRepair,
   rotateTrackingToken,
   getRepairQueue,
-  getRepairReconstruction
+  getRepairReconstruction,
 } from "../controllers/repairController.js";
 import { USER_ROLES } from "../utils/constants.js";
 
@@ -42,27 +46,37 @@ const router = Router();
  *       401: { description: Authentication required }
  *       429: { description: Tracking-token issuance rate limit exceeded }
  */
-router.post("/", authenticate, repairTrackingIssuanceLimiter, validate(createRepairSchema), createRepair);
+router.post(
+  "/",
+  authenticate,
+  repairTrackingIssuanceLimiter,
+  validate(createRepairSchema),
+  createRepair,
+);
 
 router.patch(
   "/:id/intake",
   authenticate,
-  authorize(USER_ROLES.STORE_OPERATOR, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN),
-  intakeRepair
+  authorize(
+    USER_ROLES.STORE_OPERATOR,
+    USER_ROLES.OPS_MANAGER,
+    USER_ROLES.SUPER_ADMIN,
+  ),
+  intakeRepair,
 );
 
 router.patch(
   "/:id/assign-technician",
   authenticate,
   authorize(USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN),
-  assignTechnician
+  assignTechnician,
 );
 
 router.patch(
   "/:id/diagnosis",
   authenticate,
   authorize(USER_ROLES.TECHNICIAN),
-  recordDiagnosis
+  recordDiagnosis,
 );
 
 /**
@@ -103,8 +117,12 @@ router.patch(
 router.post(
   "/:id/quote",
   authenticate,
-  authorize(USER_ROLES.TECHNICIAN, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN),
-  createQuote
+  authorize(
+    USER_ROLES.TECHNICIAN,
+    USER_ROLES.OPS_MANAGER,
+    USER_ROLES.SUPER_ADMIN,
+  ),
+  createQuote,
 );
 
 /**
@@ -128,11 +146,7 @@ router.post(
  *       404: { description: Non-enumerating unavailable quote or repair }
  *       409: { description: Quote is no longer actionable or has a conflicting decision }
  */
-router.patch(
-  "/:id/quote/:quoteId/approve",
-  authenticate,
-  approveQuote
-);
+router.patch("/:id/quote/:quoteId/approve", authenticate, approveQuote);
 
 /**
  * @swagger
@@ -160,36 +174,50 @@ router.patch("/:id/quote/:quoteId/decline", authenticate, declineQuote);
 router.patch(
   "/:id/start",
   authenticate,
-  authorize(USER_ROLES.TECHNICIAN, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN),
-  startRepair
+  authorize(
+    USER_ROLES.TECHNICIAN,
+    USER_ROLES.OPS_MANAGER,
+    USER_ROLES.SUPER_ADMIN,
+  ),
+  startRepair,
 );
 
 router.patch(
   "/:id/complete",
   authenticate,
   authorize(USER_ROLES.TECHNICIAN),
-  completeRepairWork
+  completeRepairWork,
 );
 
 router.post(
   "/:id/log",
   authenticate,
-  authorize(USER_ROLES.TECHNICIAN, USER_ROLES.QC_OFFICER, USER_ROLES.STORE_OPERATOR, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN),
-  addWorkLog
+  authorize(
+    USER_ROLES.TECHNICIAN,
+    USER_ROLES.QC_OFFICER,
+    USER_ROLES.STORE_OPERATOR,
+    USER_ROLES.OPS_MANAGER,
+    USER_ROLES.SUPER_ADMIN,
+  ),
+  addWorkLog,
 );
 
 router.patch(
   "/:id/qc",
   authenticate,
   authorize(USER_ROLES.QC_OFFICER, USER_ROLES.SUPER_ADMIN),
-  performQC
+  performQC,
 );
 
 router.patch(
   "/:id/handover",
   authenticate,
-  authorize(USER_ROLES.STORE_OPERATOR, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN),
-  handoverRepair
+  authorize(
+    USER_ROLES.STORE_OPERATOR,
+    USER_ROLES.OPS_MANAGER,
+    USER_ROLES.SUPER_ADMIN,
+  ),
+  handoverRepair,
 );
 
 router.get(
@@ -206,10 +234,10 @@ router.get(
     USER_ROLES.OPS_MANAGER,
     USER_ROLES.PRODUCT_ADMIN,
     USER_ROLES.TECH_ADMIN,
-    USER_ROLES.SUPER_ADMIN
+    USER_ROLES.SUPER_ADMIN,
   ),
   validate(getRepairsQuerySchema, "query"),
-  getRepairQueue
+  getRepairQueue,
 );
 
 /**
@@ -241,7 +269,12 @@ router.get(
  *       404: { description: Non-enumerating unavailable tracking credential }
  *       429: { description: Tracking rate limit exceeded }
  */
-router.get("/:id/track", repairTrackingLimiter, optionalAccessAuthentication, trackRepair);
+router.get(
+  "/:id/track",
+  repairTrackingLimiter,
+  optionalAccessAuthentication,
+  trackRepair,
+);
 
 /**
  * @swagger
@@ -260,7 +293,12 @@ router.get("/:id/track", repairTrackingLimiter, optionalAccessAuthentication, tr
  *       404: { description: Non-enumerating unavailable repair }
  *       429: { description: Token rotation rate limit exceeded }
  */
-router.post("/:id/tracking-token", authenticate, repairTrackingRotationLimiter, rotateTrackingToken);
+router.post(
+  "/:id/tracking-token",
+  authenticate,
+  repairTrackingRotationLimiter,
+  rotateTrackingToken,
+);
 
 router.get(
   "/:id/reconstruction",
@@ -270,9 +308,9 @@ router.get(
     USER_ROLES.TECHNICIAN,
     USER_ROLES.QC_OFFICER,
     USER_ROLES.OPS_MANAGER,
-    USER_ROLES.SUPER_ADMIN
+    USER_ROLES.SUPER_ADMIN,
   ),
-  getRepairReconstruction
+  getRepairReconstruction,
 );
 
 export default router;

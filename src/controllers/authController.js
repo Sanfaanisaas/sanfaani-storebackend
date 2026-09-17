@@ -18,21 +18,31 @@ import {
 } from "../services/tokenService.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import AppError from "../utils/AppError.js";
-import { clearRefreshCookie, REFRESH_COOKIE_NAME, setRefreshCookie } from "../utils/refreshCookie.js";
+import {
+  clearRefreshCookie,
+  REFRESH_COOKIE_NAME,
+  setRefreshCookie,
+} from "../utils/refreshCookie.js";
 
 export const PASSWORD_HASH_COST = 12;
-export const DUMMY_PASSWORD_HASH = "$2b$12$STwmCXXAcG1juP88YSrvc.xvHyHZ6Kd.MLSEIDJg.cpO16B1PEc0K";
+export const DUMMY_PASSWORD_HASH =
+  "$2b$12$STwmCXXAcG1juP88YSrvc.xvHyHZ6Kd.MLSEIDJg.cpO16B1PEc0K";
 
-const fail = (res, message, code, detail = "Sign in again to continue") => res.status(401).json({
-  success: false,
-  message,
-  errors: [{ code, message: detail }],
-});
+const fail = (res, message, code, detail = "Sign in again to continue") =>
+  res.status(401).json({
+    success: false,
+    message,
+    errors: [{ code, message: detail }],
+  });
 
 const cookieSessionId = (req) => {
   const token = req.cookies?.[REFRESH_COOKIE_NAME];
   if (!token) return null;
-  try { return verifyRefreshTokenIgnoringExpiry(token).sessionId || null; } catch { return null; }
+  try {
+    return verifyRefreshTokenIgnoringExpiry(token).sessionId || null;
+  } catch {
+    return null;
+  }
 };
 
 export const register = catchAsync(async (req, res) => {
@@ -53,12 +63,23 @@ export const register = catchAsync(async (req, res) => {
 export const login = catchAsync(async (req, res) => {
   const { email, password } = req.body;
   const user = await User.findOne({ email });
-  const matches = await bcrypt.compare(password, user?.passwordHash || DUMMY_PASSWORD_HASH);
+  const matches = await bcrypt.compare(
+    password,
+    user?.passwordHash || DUMMY_PASSWORD_HASH,
+  );
   if (!user || !matches) {
     await recordSecurityEvent({
-      event: "login_failed", user: user?._id, req, metadata: { reason: "invalid_credentials" },
+      event: "login_failed",
+      user: user?._id,
+      req,
+      metadata: { reason: "invalid_credentials" },
     });
-    return fail(res, "Invalid credentials", "invalid_credentials", "Email or password is incorrect");
+    return fail(
+      res,
+      "Invalid credentials",
+      "invalid_credentials",
+      "Email or password is incorrect",
+    );
   }
 
   let created;
@@ -66,15 +87,25 @@ export const login = catchAsync(async (req, res) => {
     created = await createLoginSession(user, req);
   } catch {
     await recordSecurityEvent({
-      event: "login_failed", user: user._id, req, metadata: { reason: "session_persistence_failed" },
+      event: "login_failed",
+      user: user._id,
+      req,
+      metadata: { reason: "session_persistence_failed" },
     });
-    throw new AppError("Authentication service unavailable", 503, [{
-      code: "session_persistence_failed",
-      message: "Please try again later",
-    }]);
+    throw new AppError("Authentication service unavailable", 503, [
+      {
+        code: "session_persistence_failed",
+        message: "Please try again later",
+      },
+    ]);
   }
   const accessToken = generateAccessToken(user);
-  await recordSecurityEvent({ event: "login_succeeded", user: user._id, sessionId: created.sessionId, req });
+  await recordSecurityEvent({
+    event: "login_succeeded",
+    user: user._id,
+    sessionId: created.sessionId,
+    req,
+  });
   setRefreshCookie(res, created.refreshToken);
   return res.status(200).json({
     success: true,
@@ -85,8 +116,17 @@ export const login = catchAsync(async (req, res) => {
 export const refresh = catchAsync(async (req, res) => {
   const token = req.cookies?.[REFRESH_COOKIE_NAME];
   if (!token) {
-    await recordSecurityEvent({ event: "refresh_failed", req, metadata: { reason: "missing_cookie" } });
-    return fail(res, "Refresh session required", "refresh_token_missing", "Sign in to continue");
+    await recordSecurityEvent({
+      event: "refresh_failed",
+      req,
+      metadata: { reason: "missing_cookie" },
+    });
+    return fail(
+      res,
+      "Refresh session required",
+      "refresh_token_missing",
+      "Sign in to continue",
+    );
   }
 
   let claims;
@@ -96,7 +136,9 @@ export const refresh = catchAsync(async (req, res) => {
     clearRefreshCookie(res);
     const expired = error?.name === "TokenExpiredError";
     await recordSecurityEvent({
-      event: "refresh_failed", req, metadata: { reason: expired ? "expired" : "invalid" },
+      event: "refresh_failed",
+      req,
+      metadata: { reason: expired ? "expired" : "invalid" },
     });
     return fail(
       res,
@@ -128,10 +170,12 @@ export const refresh = catchAsync(async (req, res) => {
         req,
         metadata: { reason: "persistence_failed" },
       });
-      throw new AppError("Authentication service unavailable", 503, [{
-        code: "refresh_persistence_failed",
-        message: "Please try again later",
-      }]);
+      throw new AppError("Authentication service unavailable", 503, [
+        {
+          code: "refresh_persistence_failed",
+          message: "Please try again later",
+        },
+      ]);
     }
     clearRefreshCookie(res);
     await recordSecurityEvent({
@@ -142,7 +186,11 @@ export const refresh = catchAsync(async (req, res) => {
       metadata: { reason: error.code },
     });
     if (error.reuse) {
-      return fail(res, "Session is no longer valid", "refresh_token_reuse_detected");
+      return fail(
+        res,
+        "Session is no longer valid",
+        "refresh_token_reuse_detected",
+      );
     }
     return fail(res, "Session is no longer valid", error.code);
   }
@@ -161,30 +209,48 @@ export const logout = catchAsync(async (req, res) => {
     }
     if (claims) {
       try {
-        identified = await revokeRecognizedToken({ token, claims, reason: "logout" });
+        identified = await revokeRecognizedToken({
+          token,
+          claims,
+          reason: "logout",
+        });
       } catch (error) {
         if (error instanceof RefreshSessionError) identified = null;
-        else throw new AppError("Logout service unavailable", 503, [{
-          code: "logout_persistence_failed",
-          message: "The cookie was cleared; please try again later",
-        }]);
+        else
+          throw new AppError("Logout service unavailable", 503, [
+            {
+              code: "logout_persistence_failed",
+              message: "The cookie was cleared; please try again later",
+            },
+          ]);
       }
     }
   }
   if (identified) {
     await recordSecurityEvent({
-      event: "logout", user: identified.user, sessionId: identified.sessionId, req,
+      event: "logout",
+      user: identified.user,
+      sessionId: identified.sessionId,
+      req,
     });
   }
-  return res.status(200).json({ success: true, data: { message: "Logged out successfully" } });
+  return res
+    .status(200)
+    .json({ success: true, data: { message: "Logged out successfully" } });
 });
 
 export const listSessions = catchAsync(async (req, res) => {
-  const sessions = await AuthSession.find({ user: req.user.id }).sort({ createdAt: -1 });
+  const sessions = await AuthSession.find({ user: req.user.id }).sort({
+    createdAt: -1,
+  });
   const currentSessionId = cookieSessionId(req);
   return res.status(200).json({
     success: true,
-    data: { sessions: sessions.map((session) => sessionDto(session, currentSessionId)) },
+    data: {
+      sessions: sessions.map((session) =>
+        sessionDto(session, currentSessionId),
+      ),
+    },
   });
 });
 
@@ -198,14 +264,21 @@ export const revokeSession = catchAsync(async (req, res) => {
     return res.status(404).json({
       success: false,
       message: "Session not found",
-      errors: [{ code: "session_not_found", message: "The session is unavailable" }],
+      errors: [
+        { code: "session_not_found", message: "The session is unavailable" },
+      ],
     });
   }
   if (cookieSessionId(req) === revoked.sessionId) clearRefreshCookie(res);
   await recordSecurityEvent({
-    event: "session_revoked", user: req.user.id, sessionId: revoked.sessionId, req,
+    event: "session_revoked",
+    user: req.user.id,
+    sessionId: revoked.sessionId,
+    req,
   });
-  return res.status(200).json({ success: true, data: { message: "Session revoked" } });
+  return res
+    .status(200)
+    .json({ success: true, data: { message: "Session revoked" } });
 });
 
 // DELETE /sessions revokes every session for the authenticated account.
@@ -216,7 +289,10 @@ export const revokeAllSessions = catchAsync(async (req, res) => {
   });
   clearRefreshCookie(res);
   await recordSecurityEvent({
-    event: "all_sessions_revoked", user: req.user.id, req, metadata: { count },
+    event: "all_sessions_revoked",
+    user: req.user.id,
+    req,
+    metadata: { count },
   });
   return res.status(200).json({
     success: true,

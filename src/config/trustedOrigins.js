@@ -12,10 +12,12 @@ const parseHttpUrl = (value, label) => {
     throw new TypeError(`${label} must be an absolute HTTP(S) URL`);
   }
 
-  if (!["http:", "https:"].includes(parsed.protocol)
-      || parsed.username
-      || parsed.password
-      || parsed.origin === "null") {
+  if (
+    !["http:", "https:"].includes(parsed.protocol) ||
+    parsed.username ||
+    parsed.password ||
+    parsed.origin === "null"
+  ) {
     throw new TypeError(`${label} must be a credential-free HTTP(S) URL`);
   }
   return parsed;
@@ -28,18 +30,25 @@ export const parseTrustedOrigins = (
     throw new TypeError("CORS_ORIGIN must be a comma-separated string");
   }
 
-  const entries = configured.split(",").map((value) => value.trim()).filter(Boolean);
+  const entries = configured
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
   if (!entries.length || entries.includes("*")) {
     throw new TypeError("CORS_ORIGIN must contain explicit HTTP(S) origins");
   }
 
-  return new Set(entries.map((entry) => {
-    const parsed = parseHttpUrl(entry, "Configured origin");
-    if (parsed.pathname !== "/" || parsed.search || parsed.hash) {
-      throw new TypeError("Configured origins cannot contain paths, queries, or fragments");
-    }
-    return parsed.origin;
-  }));
+  return new Set(
+    entries.map((entry) => {
+      const parsed = parseHttpUrl(entry, "Configured origin");
+      if (parsed.pathname !== "/" || parsed.search || parsed.hash) {
+        throw new TypeError(
+          "Configured origins cannot contain paths, queries, or fragments",
+        );
+      }
+      return parsed.origin;
+    }),
+  );
 };
 
 export const parseOriginHeader = (value) => {
@@ -50,8 +59,10 @@ export const parseOriginHeader = (value) => {
   return parsed.origin;
 };
 
-export const parseRefererOrigin = (value) => parseHttpUrl(value, "Referer").origin;
+export const parseRefererOrigin = (value) =>
+  parseHttpUrl(value, "Referer").origin;
 
-export const isTrustedOrigin = (value, trustedOrigins = parseTrustedOrigins()) => (
-  trustedOrigins.has(parseOriginHeader(value))
-);
+export const isTrustedOrigin = (
+  value,
+  trustedOrigins = parseTrustedOrigins(),
+) => trustedOrigins.has(parseOriginHeader(value));
