@@ -19,6 +19,7 @@ The application requires these variables at startup:
 - `PAYSTACK_CALLBACK_URL`: absolute callback URL required by the environment schema
 - `REPAIR_TRACKING_TOKEN_SECRET`: a distinct 32+ character server secret used
   only to HMAC repair-tracking tokens; raw tracking tokens are never stored
+- `PUSH_TOKEN_ENCRYPTION_KEY`: a 64-character hexadecimal AES-256 key for encrypted push-device tokens
 
 The following variables are optional:
 
@@ -108,6 +109,30 @@ Paystack variables in the deployment environment; never put a real Paystack
 secret in `.env.example` or commit it to Git.
 
 Never commit `.env` or real credentials. The repository ignores `.env`; `.env.example` contains documentation-only placeholders and is safe to commit.
+
+## Notification delivery and push devices (BE-23)
+
+Customer notification preferences persist `email` and `push` consent for optional categories. Security, payment, and transactional notices remain mandatory: they cannot be disabled and atomically create an inbox notification plus durable email/push outbox records. Optional categories with withdrawn consent create neither record.
+
+The delivery worker (`pnpm notification:process`) claims each pending record atomically, uses bounded exponential retry (five attempts), and then records a sanitized dead-letter category. Providers are configured only through deployment environment variables; test providers are injected, so CI never contacts an email or push provider. Provider response IDs are hashed before persistence and provider errors are not stored.
+
+`POST /api/push-devices` registers an owner-scoped installation using `Idempotency-Key`. The raw device ID and push token never appear in API DTOs or persistence: their HMAC digests support lookup, while the push token is AES-256-GCM encrypted at rest. `DELETE /api/push-devices/:id` is owner-scoped and non-enumerating. `POST /api/auth/logout` may include `X-Push-Device-Id` to revoke that owner's installation. Generated notification links are server-side allowlisted paths with no query strings, fragments, or secrets.
+
+## Privacy-safe analytics (BE-24)
+
+`POST /api/analytics/events` accepts only consented, allowlisted product events and small purpose-limited properties. It rejects tokens, credentials, serials, free-form device data, notes, payment payloads, and direct identifiers. Authenticated accounts and anonymous installation identifiers are HMAC-pseudonymized before storage; analytics records expire after 90 days and remain separate from audit and security telemetry.
+
+Trusted server code may record the listed commerce, repair, support, inventory, guidance, and service events. Public callers cannot forge those events. `GET /api/analytics/kpis` is limited to operations managers and super administrators and returns only windowed aggregate event counts—never events, identifiers, or raw analytics properties.
+
+## Versioned API contract (BE-25)
+
+`openapi/sanfaani-api.v1.json` is the committed OpenAPI 3.1 v1 artifact. Export it deterministically with `pnpm openapi:export`; `pnpm openapi:check` regenerates it in a temporary path and fails on drift. CI runs that check before tests. Every route operation has a stable `operationId` and a standard error response, so generated web and mobile clients can depend on the v1 contract. Breaking changes require a new API version or an explicit migration policy; they must not silently replace v1.
+
+## Reliability and recovery (BE-26)
+
+`GET /api/health` is liveness only and does not contact external dependencies. `GET /api/ready` checks MongoDB connectivity and required configuration while returning only sanitized dependency states. Deployment traffic must be gated on readiness, not merely liveness.
+
+The backup command requires a dedicated 64-hex `BACKUP_ENCRYPTION_KEY`, invokes `mongodump` through argument-safe process spawning, encrypts the archive with AES-256-GCM, writes a SHA-256 integrity sidecar, and never prints the database URI. Recovery, rollback, and provider-outage steps are in `docs/runbooks/`; a restore must be rehearsed against an isolated database before any production recovery.
 
 ## Repair tracking and quotes (BE-04 / BE-05)
 
@@ -449,11 +474,291 @@ Please refer to these documents for the definition of done for Customer Domains 
 
 Operational fulfilment transitions are strictly controlled via dedicated mutation endpoints to guarantee inventory integrity and secure evidence collection.
 
+### Manual payments and immutable financial documents (BE-17)
+
+Bank-transfer proof is uploaded by the order owner with
+`POST /api/orders/:id/upload-receipt` as a single JPEG, PNG, or PDF `receipt`
+part. The object uses the private Evidence storage adapter, an opaque object
+key, signature-based file validation, and transactional Evidence metadata. The
+response contains safe evidence metadata only; it never contains the object
+key or storage credentials. Uploading proof creates or refreshes a pending
+canonical `Payment` derived from the stored order amount, currency, owner, and
+purpose. It never marks an order paid and cannot change the checkout-selected
+payment method.
+
+Only `finance_officer`, `ops_manager`, and `super_admin` may call
+`PATCH /api/orders/:id/verify-bank-transfer`. Verification requires active
+owner-bound evidence and atomically transitions the canonical Payment to
+`SUCCEEDED`, updates the Order payment cache, allocates reservations, writes
+allowlisted audit events, and creates immutable invoice and receipt snapshots.
+Customer, product-admin, store-operator, missing-evidence, invalid-state, and
+mismatched binding paths cannot settle payment.
+
+Pay-on-pickup eligibility is available at
+`GET /api/orders/:id/eligible-pickup` (or the compatibility endpoint
+`GET /api/orders/eligible-pickup?orderId=...`). Eligibility is calculated only
+from the authenticated owner's persisted order total, address, selected method,
+policy limit, and server-issued expiry. Query-string totals and addresses are
+not trusted. Checkout stores the expiry alongside eligible pay-on-pickup
+orders.
+
+`GET /api/orders/:id/invoice` and `GET /api/orders/:id/receipt` are owner-only,
+non-enumerating PDF endpoints. An invoice snapshots the order on first issue; a
+receipt is available only for a matching, fully captured canonical Payment.
+Documents contain integer minor-unit line and total amounts and are rendered
+from immutable persisted snapshots, so later Order changes cannot rewrite
+historical documents. Snapshots exclude provider references, evidence keys,
+storage details, audit internals, and mutable customer/device data.
+
+Run the focused BE-17 suite with:
+
+```bash
+MONGOMS_DOWNLOAD_DIR=/tmp/sanfaani-be17-mongo pnpm test:manual-payment-documents
+```
+
 - **Collection (`PATCH /api/orders/:id/collect`)**: Requires explicit identity verification metadata (`identityDocumentType`, `acknowledgedBy`). Completing collection immediately marks the order as delivered and consumes the allocated physical serials.
 - **Dispatch (`PATCH /api/orders/:id/dispatch`)**: Requires courier details and tracking references. It formally hands the physical inventory over to a 3rd party, consuming the local allocations.
 - **Delivery (`PATCH /api/orders/:id/deliver`)**: A standalone confirmation endpoint for previously dispatched orders to finalize the transit lifecycle.
 
 All fulfilment endpoints require a verified paid order, ensure inventory allocations are consumed exactly once, and generate comprehensive audit logs. Waybills, dispatch notes, and signed customer handover forms can be securely attached to the order via the Private Evidence API using the `dispatch` or `handover` purpose fields.
+
+### Inventory and procurement operations (BE-18)
+
+BE-18 closes the internal inventory lifecycle with staff-only, validated APIs.
+Supplier and commercial purchase-order data are never mounted on customer
+routes. Inventory officers may read suppliers, manage purchase orders, receive
+approved quantities, transfer units, record counts, and perform evidence-backed
+adjustments. Supplier creation/update/deactivation, purchase-order approval,
+cancellation/explicit closure, and discrepancy resolution require
+`ops_manager` or `super_admin` authority.
+
+Purchase orders use controlled `DRAFT -> PENDING_APPROVAL -> APPROVED ->
+RECEIVING -> CLOSED` transitions, with `CANCELLED` allowed only before receipt.
+Every receipt requires retained purchase-order evidence and an idempotency key.
+Non-serialized receipts update aggregate stock once. Serialized receipts create
+quarantined units and zero-delta ledger facts; a passed inspection plus an
+explicit quarantine release is required before each unit becomes sellable.
+Transfer, return-to-stock, release, adjustment, and count-reconciliation paths
+use conditional state predicates so concurrent or repeated requests cannot
+move or release the same unit twice.
+
+Stock counts require an active location, a bounded reason, retained evidence,
+and a payload-bound idempotency key. A mismatch creates one `OPEN`
+`StockDiscrepancy`. Only Operations Managers and Super Administrators can
+resolve it with `ADJUST_STOCK` or `ACCEPT_NO_CHANGE`; the decision, reason, and
+resolution evidence are retained. Any resulting stock delta, its immutable
+`StockLedger` fact, and its allowlisted audit event commit in one MongoDB
+transaction.
+
+Run the BE-18 suites only against an isolated MongoDB replica set:
+
+```bash
+MONGOMS_DOWNLOAD_DIR=/tmp/sanfaani-be18-mongo pnpm test:inventory-operations
+MONGOMS_DOWNLOAD_DIR=/tmp/sanfaani-be18-mongo pnpm test:stock-reconstruction
+```
+
+The inventory migration is dry-run by default. Apply mode is blocked unless an
+approver, backup evidence reference, and rollback runbook reference are all
+provided:
+
+```bash
+pnpm inventory:migrate
+pnpm inventory:migrate -- --apply \
+  --approved-by <staff-object-id> \
+  --backup-reference <immutable-backup-reference> \
+  --rollback-reference <approved-rollback-runbook-reference>
+```
+
+The apply inserts only the opening-balance facts needed to make ledger
+reconstruction equal stored stock. A second approved apply creates no duplicate
+opening facts. Each apply stores immutable migration evidence and fails its
+transaction if reconstruction does not match exactly.
+
+### Organisation quotation-to-order conversion (BE-19)
+
+`POST /api/organisations` creates an organisation and its creator's `OWNER`
+membership atomically. `GET /api/organisations/mine` returns active memberships,
+while `GET` and `POST /api/organisations/:id/members` expose the controlled
+membership boundary. Member management is owner/admin scoped. Purchasing
+authority is always resolved from the active persisted membership: `OWNER`,
+`ADMIN`, and `BUYER` may purchase; `VIEWER`, revoked members, outsiders, and
+forged access-token role claims may not.
+
+New organisation procurement requests include `organisationId`; the supplied
+organisation name and type must match that server record. Staff-issued
+quotations inherit the organisation binding. After the request owner approves
+the current quote, an authorised organisation purchaser converts it with:
+
+```http
+POST /api/procurement/quotations/:id/convert
+Authorization: Bearer <access-token>
+Idempotency-Key: <stable-client-operation-key>
+Content-Type: application/json
+
+{
+  "organisationId": "<organisation-object-id>",
+  "expectedVersion": 1,
+  "paymentMethod": "bank_transfer",
+  "shippingAddress": {
+    "street": "12 Procurement Road",
+    "city": "Ibadan",
+    "state": "Oyo",
+    "postalCode": "200001",
+    "country": "Nigeria"
+  },
+  "purchaseOrderReference": "PO-ACME-2026-001"
+}
+```
+
+Conversion accepts only an approved, non-superseded, matching-version,
+unexpired quotation. A unique database constraint allows exactly one order per
+quotation. Identical idempotent replays return that order with
+`Idempotency-Replayed: true`; payload drift or another conversion key conflicts.
+The order, quote/request transitions, and allowlisted audit event commit in one
+MongoDB transaction, so required-audit or persistence failure leaves no partial
+order.
+
+The order's immutable `procurementSnapshot` is an explicit allowlist containing
+only organisation/request/quotation identifiers, quotation version, line items,
+subtotal, tax, fees, fulfilment charge, total, currency, terms version, warranty
+and support summaries, validity/approval timestamps, and the optional customer
+purchase-order reference. Totals and quote identity are derived from persisted
+quotation state; client-supplied financial fields are ignored. Internal
+idempotency fingerprints, conversion actor data, audit records, supplier data,
+cost prices, procurement operations, and membership internals are excluded.
+Invoices for B2B orders use this immutable snapshot and never depend on later
+quotation or catalogue changes.
+
+Run the focused suite only against an isolated MongoDB replica set:
+
+```bash
+MONGOMS_DOWNLOAD_DIR=/tmp/sanfaani-be19-mongo pnpm test:b2b-order-conversion
+```
+
+### Service execution and maintenance plans (BE-20)
+
+Upgrade, setup, data-migration, and preventive-maintenance work cannot begin
+from a request alone. Operations must schedule the latest approved,
+non-superseded, unexpired service quotation and assign a persisted technician
+account. If the accepted quotation requires a deposit before work, its
+server-controlled payment state must confirm the full required amount.
+Quotation-creation input cannot set payment state.
+
+The execution lifecycle is explicit and forward-only:
+
+```text
+APPROVED request -> SCHEDULED -> IN_PROGRESS -> COMPLETED
+                              \-> CANCELLED
+```
+
+Scheduling, starting, completion, and cancellation require an
+`Idempotency-Key` and an expected aggregate version. Assigned technicians may
+start and complete their work; Operations Managers and Super Administrators
+may operate the workflow, while cancellation remains operations-only. The
+service request, execution, notification, audit event, and completion history
+commit transactionally. Completion creates exactly one immutable
+`ServiceHistoryEntry`; private scheduling and technician notes never appear in
+customer history or API DTOs.
+
+Operations Managers and Super Administrators administer plans through
+`POST/GET /api/maintenance-plans`, `PATCH /api/maintenance-plans/:id`, and the
+explicit `cancel` and `renew` actions. Customer reads remain owner-scoped under
+`/api/maintenance-plans/mine` and `/api/maintenance-plans/:id`. Updates use
+optimistic concurrency. Renewal creates a new linked term instead of silently
+rewriting the old commercial record; cancellation and renewal are idempotent
+and audited. Recurring billing, organisation-wide plan automation, and service
+analytics remain deferred to BE-30.
+
+Run the focused suite only against an isolated MongoDB replica set:
+
+```bash
+MONGOMS_DOWNLOAD_DIR=/tmp/sanfaani-be20-mongo pnpm test:service-execution-plans
+```
+
+### Controlled staff identity and permissions (BE-21)
+
+Public `/api/auth/register` always creates a customer account. Staff identities
+are provisioned only by Product Administrators or Super Administrators through
+`POST /api/admin/staff/invitations`. The response returns a 256-bit Base64URL
+activation token exactly once; only its SHA-256 digest is stored. The token is
+bound to one invited account, expires after 48 hours, and is consumed through
+`POST /api/auth/staff-invitations/accept` using the
+`X-Staff-Invitation-Token` header. Missing, random, expired, and already-used
+tokens share the same non-enumerating response.
+Product or Super Administrators may rotate an unaccepted invitation through
+`POST /api/admin/staff/:id/invitations`; rotation revokes every earlier active
+token and returns the replacement only on its initial response.
+
+The permission register at `GET /api/admin/staff/roles` is application-owned
+and read-only. Product Administrators may manage ordinary operational roles.
+Operations Manager, Product Administrator, Technical Administrator, and Super
+Administrator assignments require a Super Administrator. Administrators
+cannot alter their own role or suspension state through these endpoints.
+
+Role changes and suspension/reactivation require the current administrative
+version. Each transition increments both the administrative version and the
+account's private authentication version, transactionally revokes every active
+refresh-token family, and writes an allowlisted audit event. Access tokens
+issued by this API carry the authentication version; middleware resolves the
+persisted role and active status, so stale role claims and tokens belonging to
+suspended accounts fail immediately. Reactivation does not restore prior
+sessions.
+
+Staff list/detail projections expose only identity, role, account state,
+effective application permissions, concurrency version, and safe timestamps.
+Password hashes, activation-token digests, idempotency fingerprints, session
+identifiers, status reasons, and audit internals are excluded.
+
+Run the focused suite only against an isolated MongoDB replica set:
+
+```bash
+MONGOMS_DOWNLOAD_DIR=/tmp/sanfaani-be21-mongo pnpm test:staff-identity
+```
+
+### Versioned content and policy publication (BE-22)
+
+Content pages and policy documents are immutable per-version records. Editors
+create drafts with a payload-bound `Idempotency-Key`, submit them for review,
+and a Product or Super Administrator independently approves and publishes
+them. The controlled lifecycle is `DRAFT → IN_REVIEW → APPROVED → PUBLISHED`;
+publishing a replacement transactionally marks the prior public version
+`SUPERSEDED`. Non-current versions may be archived. Every state change is
+audited and uses `expectedStateVersion` optimistic concurrency.
+
+Public reads require no credentials and return only the current published
+version through `GET /api/content/pages/:slug` or
+`GET /api/content/policies/:key`. Drafts, workflow state, authors, reviewers,
+idempotency data, and audit metadata are excluded. Preview and mutation routes
+under `/api/content/admin/*` require a Merchandiser, Product Administrator, or
+Super Administrator as appropriate; draft creators cannot approve their own
+version.
+
+The nine stable launch-policy keys are:
+
+- `terms_of_sale`
+- `warranty_policy`
+- `returns_refund_policy`
+- `repair_custody_terms`
+- `device_data_backup_acknowledgement`
+- `privacy_notice`
+- `cookie_analytics_notice`
+- `delivery_pickup_policy`
+- `b2b_quotation_terms`
+
+Checkout, repair intake, warranty, return, evidence, B2B procurement, and
+service records capture immutable `{ policyVersionId, key, version,
+acceptedAt }` snapshots from the currently published policy records. Existing
+records therefore retain the exact terms that applied even after publication
+of a replacement. A current policy cannot be deleted, and any superseded or
+archived policy referenced by one of these records is also deletion-protected.
+BE-28 readiness must confirm all nine keys have a published version before
+production activation.
+
+Run the focused suite only against an isolated MongoDB replica set:
+
+```bash
+MONGOMS_DOWNLOAD_DIR=/tmp/sanfaani-be22-mongo pnpm test:content-policy
+```
 
 ## Run locally
 

@@ -1,6 +1,13 @@
 import { verifyAccessToken } from "../services/tokenService.js";
+import User from "../models/User.js";
 
-export function authenticate(req, res, next) {
+const invalid = (res) => res.status(401).json({
+  success: false,
+  message: "Invalid or expired token",
+  errors: [{ code: "access_token_invalid", message: "Sign in again to continue" }],
+});
+
+export async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -13,16 +20,29 @@ export function authenticate(req, res, next) {
 
   const token = authHeader.split(" ")[1];
 
+  let decoded;
+  try { decoded = verifyAccessToken(token); } catch { return invalid(res); }
   try {
-    const decoded = verifyAccessToken(token);
-    req.user = { id: decoded.userId, role: decoded.role };
-    next();
-  } catch {
-    return res.status(401).json({
-      success: false,
-      message: "Invalid or expired token",
-      errors: [{ code: "access_token_invalid", message: "Sign in again to continue" }],
-    });
+    // Access tokens issued by this API carry authVersion. Persisted account
+    // state therefore invalidates role-changed or suspended sessions at once.
+    // Legacy versionless and version-zero fixture tokens remain accepted only
+    // in the integration-test harness when no User document exists. Persisted
+    // users always use database-backed status, role and version checks.
+    if (Number.isSafeInteger(decoded.authVersion)) {
+      const user = await User.findById(decoded.userId).select("+authVersion role status");
+      if (!user && process.env.NODE_ENV === "test" && decoded.authVersion === 0) {
+        req.user = { id: decoded.userId, role: decoded.role };
+      } else {
+        if (!user || user.status !== "ACTIVE" || user.authVersion !== decoded.authVersion) return invalid(res);
+        req.user = { id: user._id.toString(), role: user.role, authVersion: user.authVersion };
+      }
+    } else {
+      if (process.env.NODE_ENV !== "test") return invalid(res);
+      req.user = { id: decoded.userId, role: decoded.role };
+    }
+    return next();
+  } catch (error) {
+    return next(error);
   }
 }
 

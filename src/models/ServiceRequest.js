@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { policyAcceptanceSchema } from "./PolicyVersion.js";
 
 export const SERVICE_TYPES = Object.freeze(["DEVICE_UPGRADE", "DEVICE_SETUP", "SOFTWARE_SETUP", "DATA_MIGRATION", "PREVENTIVE_MAINTENANCE", "MAINTENANCE_PLAN"]);
 export const SERVICE_REQUEST_STATUSES = Object.freeze(["REQUESTED", "ASSESSMENT_REQUIRED", "INFORMATION_REQUIRED", "COMPATIBLE", "PARTIALLY_COMPATIBLE", "INCOMPATIBLE", "QUOTE_ISSUED", "AWAITING_DECISION", "APPROVED", "DECLINED", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]);
@@ -44,6 +45,7 @@ const schema = new mongoose.Schema({
   assessment: { type: assessmentSchema, default: () => ({}) },
   idempotencyKey: { type: String, trim: true, minlength: 1, maxlength: 128, immutable: true },
   idempotencyFingerprint: { type: String, match: /^[a-f0-9]{64}$/, immutable: true },
+  policyAcceptances: { type: [policyAcceptanceSchema], default: [], immutable: true },
 }, { timestamps: true });
 
 schema.index({ customer: 1, idempotencyKey: 1 }, { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } }, name: "customer_service_idempotency" });

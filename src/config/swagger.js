@@ -31,6 +31,12 @@ const options = {
           name: "X-Guidance-Resume-Token",
           description: "Opaque guest guidance session resume credential.",
         },
+        staffInvitationToken: {
+          type: "apiKey",
+          in: "header",
+          name: "X-Staff-Invitation-Token",
+          description: "Opaque, expiring, one-time staff activation credential.",
+        },
       },
       schemas: {
         StandardError: {
@@ -66,6 +72,95 @@ const options = {
             hasNextPage: { type: "boolean" },
           },
         },
+        InternalSupplier: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "name", "email", "phone", "active", "version", "deactivatedAt", "createdAt", "updatedAt"],
+          properties: {
+            id: { type: "string" },
+            name: { type: "string" },
+            email: { type: ["string", "null"], format: "email" },
+            phone: { type: ["string", "null"] },
+            active: { type: "boolean" },
+            version: { type: "integer", minimum: 0 },
+            deactivatedAt: { type: ["string", "null"], format: "date-time" },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
+          },
+        },
+        InternalPurchaseOrder: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "supplierId", "status", "version", "lines", "evidenceIds", "receipts", "createdAt", "updatedAt"],
+          properties: {
+            id: { type: "string" },
+            supplierId: { type: "string" },
+            status: { type: "string", enum: ["DRAFT", "PENDING_APPROVAL", "APPROVED", "RECEIVING", "CLOSED", "CANCELLED"] },
+            version: { type: "integer", minimum: 0 },
+            lines: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["variantId", "quantity", "unitCost", "receivedQuantity"],
+                properties: {
+                  variantId: { type: "string" },
+                  quantity: { type: "integer", minimum: 1 },
+                  unitCost: { type: "integer", minimum: 0, description: "Private commercial field; staff roles only" },
+                  receivedQuantity: { type: "integer", minimum: 0 },
+                },
+              },
+            },
+            evidenceIds: { type: "array", items: { type: "string" } },
+            receipts: { type: "array", items: { type: "object" } },
+            submittedAt: { type: ["string", "null"], format: "date-time" },
+            approvedAt: { type: ["string", "null"], format: "date-time" },
+            cancelledAt: { type: ["string", "null"], format: "date-time" },
+            cancellationReason: { type: ["string", "null"] },
+            closedAt: { type: ["string", "null"], format: "date-time" },
+            closeReason: { type: ["string", "null"] },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
+          },
+        },
+        StockCount: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "variantId", "locationId", "expectedQuantity", "countedQuantity", "status", "countScope", "reason", "evidenceId", "discrepancyId", "createdAt"],
+          properties: {
+            id: { type: "string" },
+            variantId: { type: "string" },
+            locationId: { type: "string" },
+            expectedQuantity: { type: "integer", minimum: 0 },
+            countedQuantity: { type: "integer", minimum: 0 },
+            status: { type: "string", enum: ["MATCHED", "DISCREPANCY", "RECONCILED"] },
+            countScope: { type: "string", enum: ["VARIANT_GLOBAL", "SERIALIZED_LOCATION"] },
+            reason: { type: "string" },
+            evidenceId: { type: "string" },
+            discrepancyId: { type: ["string", "null"] },
+            createdAt: { type: "string", format: "date-time" },
+          },
+        },
+        StockDiscrepancy: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "stockCountId", "variantId", "locationId", "expectedQuantity", "countedQuantity", "variance", "status", "resolution", "resolutionReason", "resolutionEvidenceId", "resolvedAt", "createdAt"],
+          properties: {
+            id: { type: "string" },
+            stockCountId: { type: "string" },
+            variantId: { type: "string" },
+            locationId: { type: "string" },
+            expectedQuantity: { type: "integer", minimum: 0 },
+            countedQuantity: { type: "integer", minimum: 0 },
+            variance: { type: "integer" },
+            status: { type: "string", enum: ["OPEN", "RESOLVED"] },
+            resolution: { type: ["string", "null"], enum: ["ADJUST_STOCK", "ACCEPT_NO_CHANGE", null] },
+            resolutionReason: { type: ["string", "null"] },
+            resolutionEvidenceId: { type: ["string", "null"] },
+            resolvedAt: { type: ["string", "null"], format: "date-time" },
+            createdAt: { type: "string", format: "date-time" },
+          },
+        },
         AuthError: {
           type: "object",
           required: ["success", "message", "errors"],
@@ -87,6 +182,79 @@ const options = {
                 },
               },
             },
+          },
+        },
+        StaffAccount: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "name", "email", "phone", "role", "status", "permissions", "version", "roleChangedAt", "statusChangedAt", "createdAt", "updatedAt"],
+          properties: {
+            id: { type: "string" },
+            name: { type: "string" },
+            email: { type: "string", format: "email" },
+            phone: { type: ["string", "null"] },
+            role: { type: "string", enum: ["sales_advisor", "store_operator", "technician", "qc_officer", "inventory_officer", "support_officer", "finance_officer", "merchandiser", "ops_manager", "product_admin", "tech_admin", "super_admin"] },
+            status: { type: "string", enum: ["INVITED", "ACTIVE", "SUSPENDED", "DISABLED"] },
+            permissions: { type: "array", items: { type: "string" } },
+            version: { type: "integer", minimum: 0 },
+            roleChangedAt: { type: ["string", "null"], format: "date-time" },
+            statusChangedAt: { type: ["string", "null"], format: "date-time" },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
+          },
+        },
+        StaffRolePermission: {
+          type: "object",
+          additionalProperties: false,
+          required: ["role", "permissions", "privileged"],
+          properties: {
+            role: { type: "string" },
+            permissions: { type: "array", items: { type: "string" } },
+            privileged: { type: "boolean" },
+          },
+        },
+        PublicContentPage: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "slug", "locale", "version", "title", "summary", "body", "publishedAt", "updatedAt"],
+          properties: {
+            id: { type: "string" },
+            slug: { type: "string" },
+            locale: { type: "string", example: "en-NG" },
+            version: { type: "integer", minimum: 1 },
+            title: { type: "string" },
+            summary: { type: "string" },
+            body: { type: "string" },
+            publishedAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
+          },
+        },
+        PublicPolicyVersion: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "key", "locale", "version", "title", "summary", "body", "effectiveAt", "publishedAt", "updatedAt"],
+          properties: {
+            id: { type: "string" },
+            key: { type: "string", enum: ["terms_of_sale", "warranty_policy", "returns_refund_policy", "repair_custody_terms", "device_data_backup_acknowledgement", "privacy_notice", "cookie_analytics_notice", "delivery_pickup_policy", "b2b_quotation_terms"] },
+            locale: { type: "string", example: "en-NG" },
+            version: { type: "integer", minimum: 1 },
+            title: { type: "string" },
+            summary: { type: "string" },
+            body: { type: "string" },
+            effectiveAt: { type: "string", format: "date-time" },
+            publishedAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
+          },
+        },
+        PolicyAcceptanceSnapshot: {
+          type: "object",
+          additionalProperties: false,
+          required: ["policyVersionId", "key", "version", "acceptedAt"],
+          properties: {
+            policyVersionId: { type: "string" },
+            key: { type: "string" },
+            version: { type: "integer", minimum: 1 },
+            acceptedAt: { type: "string", format: "date-time" },
           },
         },
         PublicQuoteTracking: {
@@ -280,6 +448,41 @@ const options = {
           properties: {
             url: { type: "string", format: "uri" },
             expiresAt: { type: "string", format: "date-time" },
+          },
+        },
+        FinancialDocument: {
+          type: "object",
+          description: "Immutable invoice or verified-payment receipt snapshot. Provider references and evidence storage keys are excluded.",
+          additionalProperties: false,
+          required: ["id", "documentNumber", "kind", "orderId", "currency", "issuedAt", "items", "subtotal", "tax", "shipping", "total", "paymentMethod"],
+          properties: {
+            id: { type: "string" },
+            documentNumber: { type: "string" },
+            kind: { type: "string", enum: ["INVOICE", "RECEIPT"] },
+            orderId: { type: "string" },
+            currency: { type: "string", pattern: "^[A-Z]{3}$" },
+            issuedAt: { type: "string", format: "date-time" },
+            items: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["name", "sku", "unitAmount", "quantity", "lineTotal"],
+                properties: {
+                  name: { type: "string" },
+                  sku: { type: "string" },
+                  unitAmount: { type: "integer", minimum: 0 },
+                  quantity: { type: "integer", minimum: 1 },
+                  lineTotal: { type: "integer", minimum: 0 },
+                },
+              },
+            },
+            subtotal: { type: "integer", minimum: 0 },
+            tax: { type: "integer", minimum: 0 },
+            shipping: { type: "integer", minimum: 0 },
+            total: { type: "integer", minimum: 0 },
+            paymentMethod: { type: "string", enum: ["paystack", "bank_transfer", "pay_on_pickup"] },
+            paidAt: { type: "string", format: "date-time", nullable: true },
           },
         },
         WarrantyTerms: {
@@ -677,6 +880,7 @@ const options = {
             "safePreview",
             "resourceType",
             "resourceId",
+            "deepLink",
             "readAt",
             "createdAt",
             "mandatory",
@@ -689,6 +893,7 @@ const options = {
             safePreview: { type: "string" },
             resourceType: { type: "string" },
             resourceId: { type: "string" },
+            deepLink: { type: "string", pattern: "^/[A-Za-z0-9/_-]+$" },
             readAt: { type: ["string", "null"], format: "date-time" },
             createdAt: { type: "string", format: "date-time" },
             expiresAt: { type: ["string", "null"], format: "date-time" },
@@ -710,6 +915,27 @@ const options = {
             optionalCategories: { type: "object" },
             channels: { type: "object" },
           },
+        },
+        PushDevice: {
+          type: "object",
+          required: ["id", "platform", "label", "active", "lastSeenAt", "createdAt", "updatedAt"],
+          additionalProperties: false,
+          properties: {
+            id: { type: "string" }, platform: { enum: ["ios", "android", "web"] }, label: { type: "string" },
+            active: { type: "boolean" }, lastSeenAt: { type: ["string", "null"], format: "date-time" },
+            createdAt: { type: "string", format: "date-time" }, updatedAt: { type: "string", format: "date-time" },
+          },
+        },
+        NotificationDelivery: {
+          type: "object",
+          required: ["id", "notificationId", "channel", "status", "attempts", "createdAt", "updatedAt"],
+          additionalProperties: false,
+          properties: { id: { type: "string" }, notificationId: { type: "string" }, channel: { enum: ["email", "push"] }, status: { type: "string" }, attempts: { type: "integer" }, lastErrorCategory: { type: ["string", "null"] }, createdAt: { type: "string", format: "date-time" }, updatedAt: { type: "string", format: "date-time" } },
+        },
+        AnalyticsEventReceipt: {
+          type: "object",
+          required: ["accepted"], additionalProperties: false,
+          properties: { accepted: { type: "boolean" }, id: { type: "string" }, occurredAt: { type: "string", format: "date-time" } },
         },
         GuidanceRecommendation: {
           type: "object",
@@ -768,6 +994,68 @@ const options = {
             updatedAt: { type: "string", format: "date-time" },
           },
         },
+        OrganisationMembership: {
+          type: "object",
+          additionalProperties: false,
+          required: ["role", "status", "canPurchase"],
+          properties: {
+            role: { type: "string", enum: ["OWNER", "ADMIN", "BUYER", "VIEWER"] },
+            status: { type: "string", enum: ["ACTIVE", "REVOKED"] },
+            canPurchase: { type: "boolean" },
+          },
+        },
+        Organisation: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "name", "type", "billingEmail", "status", "membership", "createdAt", "updatedAt"],
+          properties: {
+            id: { type: "string" },
+            name: { type: "string" },
+            type: { type: "string", enum: ["business", "school", "nonprofit", "government", "other"] },
+            billingEmail: { type: "string", format: "email" },
+            status: { type: "string", enum: ["ACTIVE", "SUSPENDED", "CLOSED"] },
+            membership: { $ref: "#/components/schemas/OrganisationMembership" },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
+          },
+        },
+        B2BOrderProcurementSnapshot: {
+          type: "object",
+          additionalProperties: false,
+          required: ["organisationId", "requestId", "quotationId", "quotationVersion", "lineItems", "subtotal", "tax", "fees", "fulfilmentCharge", "totalAmount", "currency", "termsVersion", "warrantySummary", "supportSummary", "validUntil", "approvedAt", "purchaseOrderReference"],
+          properties: {
+            organisationId: { type: "string" },
+            requestId: { type: "string" },
+            quotationId: { type: "string" },
+            quotationVersion: { type: "integer", minimum: 1 },
+            lineItems: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["description", "quantity", "unitPrice", "totalAmount"],
+                properties: {
+                  description: { type: "string" },
+                  quantity: { type: "integer", minimum: 1 },
+                  unitPrice: { type: "integer", minimum: 0 },
+                  totalAmount: { type: "integer", minimum: 0 },
+                },
+              },
+            },
+            subtotal: { type: "integer", minimum: 0 },
+            tax: { type: "integer", minimum: 0 },
+            fees: { type: "integer", minimum: 0 },
+            fulfilmentCharge: { type: "integer", minimum: 0 },
+            totalAmount: { type: "integer", minimum: 0 },
+            currency: { type: "string", pattern: "^[A-Z]{3}$" },
+            termsVersion: { type: "string" },
+            warrantySummary: { type: ["string", "null"] },
+            supportSummary: { type: ["string", "null"] },
+            validUntil: { type: "string", format: "date-time" },
+            approvedAt: { type: "string", format: "date-time" },
+            purchaseOrderReference: { type: ["string", "null"] },
+          },
+        },
         ProcurementRequirement: {
           type: "object",
           required: [
@@ -817,6 +1105,7 @@ const options = {
           additionalProperties: false,
           properties: {
             id: { type: "string" },
+            organisationId: { type: ["string", "null"] },
             organisationName: { type: "string" },
             organisationType: { type: "string" },
             contactName: { type: "string" },
@@ -876,6 +1165,7 @@ const options = {
           properties: {
             id: { type: "string" },
             requestId: { type: "string" },
+            organisationId: { type: ["string", "null"] },
             version: { type: "integer" },
             lineItems: { type: "array", items: { type: "object" } },
             subtotal: { type: "integer" },
@@ -1042,6 +1332,44 @@ const options = {
             updatedAt: { type: "string", format: "date-time" },
           },
         },
+        ServiceExecution: {
+          type: "object",
+          required: ["id", "serviceRequestId", "customer", "quotation", "assignedTechnicianId", "schedule", "deviceSafeLabel", "status", "version", "timestamps"],
+          additionalProperties: false,
+          properties: {
+            id: { type: "string" },
+            serviceRequestId: { type: "string" },
+            customer: { type: "string", description: "Customer identifier; staff execution response only" },
+            quotation: {
+              type: "object",
+              additionalProperties: false,
+              required: ["id", "version", "totalAmount", "currency", "estimatedDays"],
+              properties: {
+                id: { type: "string" },
+                version: { type: "integer" },
+                totalAmount: { type: "integer" },
+                currency: { type: "string" },
+                estimatedDays: { type: "integer" },
+              },
+            },
+            assignedTechnicianId: { type: "string" },
+            schedule: {
+              type: "object",
+              additionalProperties: false,
+              required: ["startAt", "endAt", "mode", "location"],
+              properties: {
+                startAt: { type: "string", format: "date-time" },
+                endAt: { type: "string", format: "date-time" },
+                mode: { type: "string", enum: ["onsite", "drop_off", "pickup", "remote"] },
+                location: { type: ["string", "null"] },
+              },
+            },
+            deviceSafeLabel: { type: "string" },
+            status: { type: "string", enum: ["SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"] },
+            version: { type: "integer" },
+            timestamps: { type: "object" },
+          },
+        },
         MaintenancePlan: {
           type: "object",
           required: [
@@ -1075,9 +1403,18 @@ const options = {
             currency: { type: "string" },
             termsVersion: { type: "string" },
             cancellationInstructions: { type: "string" },
+            version: { type: "integer" },
+            cancellation: { type: ["object", "null"] },
+            renewedFromId: { type: ["string", "null"] },
             createdAt: { type: "string", format: "date-time" },
             updatedAt: { type: "string", format: "date-time" },
           },
+        },
+        MaintenancePlanAdmin: {
+          allOf: [
+            { $ref: "#/components/schemas/MaintenancePlan" },
+            { type: "object", required: ["customerId", "version"], properties: { customerId: { type: "string" } } },
+          ],
         },
       },
     },
@@ -1085,4 +1422,19 @@ const options = {
   apis: ["./src/routes/*.js"],
 };
 
-export const swaggerSpec = swaggerJSDoc(options);
+const normalizedOperationId = (method, path) => `${method}${path.replace(/\{([^}]+)\}/g, "By_$1").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "")}`;
+const generated = swaggerJSDoc(options);
+for (const [path, pathItem] of Object.entries(generated.paths || {})) {
+  for (const method of ["get", "post", "put", "patch", "delete"]) {
+    if (!pathItem[method]) continue;
+    pathItem[method].operationId ||= normalizedOperationId(method, path);
+    pathItem[method].responses ||= { 200: { description: "Success" } };
+    pathItem[method].responses.default ||= { $ref: "#/components/responses/StandardError" };
+  }
+}
+generated.components.responses ||= {};
+generated.components.responses.StandardError = {
+  description: "Standard API error envelope",
+  content: { "application/json": { schema: { $ref: "#/components/schemas/StandardError" } } },
+};
+export const swaggerSpec = generated;

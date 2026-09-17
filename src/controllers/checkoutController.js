@@ -7,7 +7,8 @@ import Variant from "../models/Variant.js";
 import Product from "../models/Product.js";
 import Order from "../models/Order.js";
 import { isPayOnPickupEligible } from "../services/orderService.js";
-import { createReservation } from "../services/reservationService.js";
+import { createReservation, RESERVATION_TTL_MS } from "../services/reservationService.js";
+import { capturePolicyAcceptances } from "../services/contentService.js";
 import { ORDER_STATUS, PRODUCT_STATUS } from "../utils/constants.js";
 
 const IDEMPOTENCY_KEY_MAX_LENGTH = 128;
@@ -205,6 +206,7 @@ export const createCheckout = catchAsync(async (req, res) => {
         const tax = 0;
         const shippingCost = 0;
         const total = orderSubtotal + tax + shippingCost;
+        const policyAcceptances = await capturePolicyAcceptances("checkout", { session });
 
         if (paymentMethod === "pay_on_pickup" && !isPayOnPickupEligible({
           total,
@@ -230,6 +232,11 @@ export const createCheckout = catchAsync(async (req, res) => {
             status: ORDER_STATUS.PENDING_PAYMENT,
             idempotencyKey,
             requestFingerprint: fingerprint,
+            payOnPickupExpiresAt:
+              paymentMethod === "pay_on_pickup"
+                ? new Date(Date.now() + RESERVATION_TTL_MS)
+                : null,
+            policyAcceptances,
           }],
           { session },
         );

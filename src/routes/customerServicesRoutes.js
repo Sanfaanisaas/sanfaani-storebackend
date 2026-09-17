@@ -3,8 +3,8 @@ import { authenticate, authorize } from "../middleware/authenticate.js";
 import { validate } from "../middleware/validate.js";
 import { customerMutationLimiter } from "../middleware/rateLimiter.js";
 import { USER_ROLES } from "../utils/constants.js";
-import { getServicePolicy, createCustomerServiceRequest, listCustomerServiceRequests, getCustomerServiceRequest, listCustomerServiceQuotes, getCustomerServiceQuote, decideCustomerServiceQuote, recordStaffAssessment, createStaffServiceQuotation, listCustomerServiceHistory, getCustomerServiceHistory } from "../controllers/customerServicesController.js";
-import { createServiceRequestSchema, createStaffServiceQuoteSchema, decideServiceQuoteSchema, getServiceRequestsQuerySchema, recordStaffAssessmentSchema, serviceQuoteIdParamSchema, serviceRequestIdParamSchema } from "../utils/validators/customerServicesValidators.js";
+import { getServicePolicy, createCustomerServiceRequest, listCustomerServiceRequests, getCustomerServiceRequest, listCustomerServiceQuotes, getCustomerServiceQuote, decideCustomerServiceQuote, recordStaffAssessment, createStaffServiceQuotation, listCustomerServiceHistory, getCustomerServiceHistory, scheduleStaffService, startStaffService, completeStaffService, cancelStaffService } from "../controllers/customerServicesController.js";
+import { cancelServiceSchema, completeServiceSchema, createServiceRequestSchema, createStaffServiceQuoteSchema, decideServiceQuoteSchema, getServiceRequestsQuerySchema, recordStaffAssessmentSchema, scheduleServiceSchema, serviceExecutionIdParamSchema, serviceQuoteIdParamSchema, serviceRequestIdParamSchema, startServiceSchema } from "../utils/validators/customerServicesValidators.js";
 
 const router = Router();
 
@@ -205,6 +205,56 @@ router.post(
   validate(createStaffServiceQuoteSchema, "body"),
   createStaffServiceQuotation
 );
+
+/**
+ * @swagger
+ * /services/requests/{id}/schedule:
+ *   post:
+ *     summary: Schedule an approved service execution (Operations)
+ *     description: Binds the latest approved quotation and a server-verified technician. Requires Idempotency-Key and optimistic request version.
+ *     tags: [CustomerServices]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       201: { description: Service execution scheduled }
+ *       409: { description: Quote, deposit, state, version, or idempotency conflict }
+ */
+router.post("/requests/:id/schedule", authenticate, authorize(USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN), validate(serviceRequestIdParamSchema, "params"), validate(scheduleServiceSchema, "body"), scheduleStaffService);
+
+/**
+ * @swagger
+ * /services/executions/{id}/start:
+ *   post:
+ *     summary: Start scheduled service work (Assigned technician or operations)
+ *     tags: [CustomerServices]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Service work started }
+ */
+router.post("/executions/:id/start", authenticate, authorize(USER_ROLES.TECHNICIAN, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN), validate(serviceExecutionIdParamSchema, "params"), validate(startServiceSchema, "body"), startStaffService);
+
+/**
+ * @swagger
+ * /services/executions/{id}/complete:
+ *   post:
+ *     summary: Complete service work and create immutable customer history
+ *     tags: [CustomerServices]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Service work completed atomically }
+ */
+router.post("/executions/:id/complete", authenticate, authorize(USER_ROLES.TECHNICIAN, USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN), validate(serviceExecutionIdParamSchema, "params"), validate(completeServiceSchema, "body"), completeStaffService);
+
+/**
+ * @swagger
+ * /services/executions/{id}/cancel:
+ *   post:
+ *     summary: Cancel a service execution (Operations)
+ *     tags: [CustomerServices]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Service execution cancelled }
+ */
+router.post("/executions/:id/cancel", authenticate, authorize(USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN), validate(serviceExecutionIdParamSchema, "params"), validate(cancelServiceSchema, "body"), cancelStaffService);
 
 /**
  * @swagger

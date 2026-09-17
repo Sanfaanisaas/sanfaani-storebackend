@@ -116,6 +116,15 @@ export const STOCK_MOVEMENT_REASON = {
   ADJUSTMENT: "adjustment",
   RETURN: "return",
   DAMAGE: "damage",
+  SALE: "sale",
+  RESTOCK: "restock",
+  ADJUSTMENT: "adjustment",
+  RETURN: "return",
+  DAMAGE: "damage",
+  TRANSFER: "transfer",
+  QUARANTINE_RELEASE: "quarantine_release",
+  COUNT_RECONCILIATION: "count_reconciliation",
+  OPENING_BALANCE_MIGRATION: "opening_balance_migration",
 };
 
 export const PRODUCT_STATUS = Object.freeze({

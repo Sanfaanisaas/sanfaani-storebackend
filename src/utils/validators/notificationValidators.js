@@ -14,7 +14,9 @@ export const updateNotificationPreferencesSchema = z.object({
     }),
     z.boolean({ required_error: "Preference value must be a boolean" })
   ).optional(),
-});
+  channels: z.object({ email: z.boolean().optional(), push: z.boolean().optional() }).strict().optional(),
+  mandatoryCategories: z.record(z.string(), z.boolean()).optional(),
+}).strict();
 
 export const getNotificationsQuerySchema = z.object({
   page: z.preprocess((val) => parseInt(val, 10), z.number().int().min(1).default(1)).optional(),

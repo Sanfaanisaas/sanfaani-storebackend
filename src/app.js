@@ -30,6 +30,11 @@ import returnRoutes from "./routes/returnRoutes.js";
 import notificationRoutes, { preferencesRouter } from "./routes/notificationRoutes.js";
 import customerServicesRoutes from "./routes/customerServicesRoutes.js";
 import maintenancePlanRoutes from "./routes/maintenancePlanRoutes.js";
+import organisationRoutes from "./routes/organisationRoutes.js";
+import staffIdentityRoutes from "./routes/staffIdentityRoutes.js";
+import contentRoutes from "./routes/contentRoutes.js";
+import pushDeviceRoutes from "./routes/pushDeviceRoutes.js";
+import analyticsRoutes from "./routes/analyticsRoutes.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -86,8 +91,13 @@ app.use("/api/claims", claimRoutes);
 app.use("/api/support-tickets", supportTicketRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/notification-preferences", preferencesRouter);
+app.use("/api/push-devices", pushDeviceRoutes);
+app.use("/api/analytics", analyticsRoutes);
 app.use("/api/services", customerServicesRoutes);
 app.use("/api/maintenance-plans", maintenancePlanRoutes);
+app.use("/api/organisations", organisationRoutes);
+app.use("/api/admin/staff", staffIdentityRoutes);
+app.use("/api/content", contentRoutes);
 
 // Handle unhandled routes
 app.all("/*path", (req, res, next) => {

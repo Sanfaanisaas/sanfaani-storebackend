@@ -18,6 +18,7 @@ jobs:
         with: { version: 11.15.1 }
       - run: pnpm install --frozen-lockfile
       - run: find src -name '*.js' -print0 | xargs -0 -n1 node --check
+      - run: pnpm openapi:check
       - run: pnpm test:ci
         env: { MONGOMS_DOWNLOAD_DIR: /tmp/sanfaani-completion-mongo }
       - uses: actions/upload-artifact@v4

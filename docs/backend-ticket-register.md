@@ -11,17 +11,17 @@ This register is the single source of truth for backend implementation tickets, 
 | **BE-12** | Staff Queues & Operations Routing                                                            | Completed |
 | **BE-13** | Inventory, Serials & Procurement Foundation                                                  | Completed |
 | **BE-14** | Reconcile backend ticket identity and restore full PRD traceability                          | Active    |
-| **BE-15** | Complete catalogue search and discovery contracts                                            | Pending   |
-| **BE-16** | Close order fulfilment, evidence, and tracking integrity                                     | Pending   |
-| **BE-17** | Complete bank-transfer, pay-on-pickup, invoice, and receipt truth                            | Pending   |
-| **BE-18** | Complete inventory and procurement operations                                                | Pending   |
-| **BE-19** | Convert B2B quotations into controlled organisation orders                                   | Pending   |
-| **BE-20** | Upgrade, setup, service execution, and maintenance-plan administration                       | Pending   |
-| **BE-21** | Controlled staff identity, role, and permission administration                               | Pending   |
-| **BE-22** | Versioned content and policy publication contracts                                           | Pending   |
-| **BE-23** | Real notification delivery and mobile push-token lifecycle                                   | Pending   |
-| **BE-24** | Privacy-safe analytics and operational KPI reporting                                         | Pending   |
-| **BE-25** | Versioned OpenAPI artifact and generated-client compatibility                                | Pending   |
+| **BE-15** | Complete catalogue search and discovery contracts                                            | Completed |
+| **BE-16** | Close order fulfilment, evidence, and tracking integrity                                     | Completed |
+| **BE-17** | Complete bank-transfer, pay-on-pickup, invoice, and receipt truth                            | Completed |
+| **BE-18** | Complete inventory and procurement operations                                                | Completed |
+| **BE-19** | Convert B2B quotations into controlled organisation orders                                   | Completed |
+| **BE-20** | Upgrade, setup, service execution, and maintenance-plan administration                       | Completed |
+| **BE-21** | Controlled staff identity, role, and permission administration                               | Completed |
+| **BE-22** | Versioned content and policy publication contracts                                           | Completed |
+| **BE-23** | Real notification delivery and mobile push-token lifecycle                                   | Completed |
+| **BE-24** | Privacy-safe analytics and operational KPI reporting                                         | Completed |
+| **BE-25** | Versioned OpenAPI artifact and generated-client compatibility                                | Completed |
 | **BE-26** | Production reliability, backup, restore, monitoring, and rollback                            | Pending   |
 | **BE-27** | Run complete backend and full-stack release certification                                    | Pending   |
 | **BE-28** | Production activation and R1 sign-off                                                        | Pending   |

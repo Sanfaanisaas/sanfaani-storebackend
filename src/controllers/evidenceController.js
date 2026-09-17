@@ -21,6 +21,7 @@ import {
 } from "../services/evidenceStorageService.js";
 import { queueEvidenceCleanup } from "../services/evidenceCleanupService.js";
 import { writeAuditLog } from "../services/auditService.js";
+import { capturePolicyAcceptances } from "../services/contentService.js";
 
 const unavailable = () =>
   new AppError("Evidence is unavailable", 404, [
@@ -307,6 +308,7 @@ export const uploadEvidence = catchAsync(async (req, res) => {
   try {
     let evidence;
     await session.withTransaction(async () => {
+      const policyAcceptances = await capturePolicyAcceptances("evidence", { session });
       [evidence] = await Evidence.create(
         [
           {
@@ -317,6 +319,7 @@ export const uploadEvidence = catchAsync(async (req, res) => {
             ...file,
             objectKey: key,
             uploader: req.user.id,
+            policyAcceptances,
           },
         ],
         { session },

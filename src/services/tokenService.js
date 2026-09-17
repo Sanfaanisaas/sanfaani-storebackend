@@ -8,7 +8,7 @@ export const REFRESH_TOKEN_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 export function generateAccessToken(user) {
   return jwt.sign(
-    { userId: user._id, role: user.role, type: "access" },
+    { userId: user._id, role: user.role, authVersion: user.authVersion || 0, type: "access" },
     env.jwtSecret,
     { algorithm: "HS256", expiresIn: ACCESS_TOKEN_EXPIRY, jwtid: randomUUID() }
   );

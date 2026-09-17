@@ -23,6 +23,12 @@ import {
   REFRESH_COOKIE_NAME,
   setRefreshCookie,
 } from "../utils/refreshCookie.js";
+import {
+  clearRefreshCookie,
+  REFRESH_COOKIE_NAME,
+  setRefreshCookie,
+} from "../utils/refreshCookie.js";
+import { revokePushDeviceByIdentifier } from "../services/pushDeviceService.js";
 
 export const PASSWORD_HASH_COST = 12;
 export const DUMMY_PASSWORD_HASH =
@@ -68,49 +74,56 @@ export const login = catchAsync(async (req, res) => {
     user?.passwordHash || DUMMY_PASSWORD_HASH,
   );
   if (!user || !matches) {
-    await recordSecurityEvent({
-      event: "login_failed",
-      user: user?._id,
-      req,
-      metadata: { reason: "invalid_credentials" },
-    });
-    return fail(
-      res,
-      "Invalid credentials",
-      "invalid_credentials",
-      "Email or password is incorrect",
+    const user = await User.findOne({ email }).select("+authVersion");
+    const matches = await bcrypt.compare(
+      password,
+      user?.passwordHash || DUMMY_PASSWORD_HASH,
     );
-  }
+    if (!user || !matches || user.status !== "ACTIVE") {
+      await recordSecurityEvent({
+        event: "login_failed",
+        user: user?._id,
+        req,
+        metadata: { reason: "invalid_credentials" },
+      });
+      return fail(
+        res,
+        "Invalid credentials",
+        "invalid_credentials",
+        "Email or password is incorrect",
+      );
+    }
 
-  let created;
-  try {
-    created = await createLoginSession(user, req);
-  } catch {
+    let created;
+    try {
+      created = await createLoginSession(user, req);
+    } catch {
+      await recordSecurityEvent({
+        event: "login_failed",
+        user: user._id,
+        req,
+        metadata: { reason: "session_persistence_failed" },
+      });
+      throw new AppError("Authentication service unavailable", 503, [
+        {
+          code: "session_persistence_failed",
+          message: "Please try again later",
+        },
+      ]);
+    }
+    const accessToken = generateAccessToken(user);
     await recordSecurityEvent({
-      event: "login_failed",
+      event: "login_succeeded",
       user: user._id,
+      sessionId: created.sessionId,
       req,
-      metadata: { reason: "session_persistence_failed" },
     });
-    throw new AppError("Authentication service unavailable", 503, [
-      {
-        code: "session_persistence_failed",
-        message: "Please try again later",
-      },
-    ]);
+    setRefreshCookie(res, created.refreshToken);
+    return res.status(200).json({
+      success: true,
+      data: { accessToken, user: user.toSafeObject() },
+    });
   }
-  const accessToken = generateAccessToken(user);
-  await recordSecurityEvent({
-    event: "login_succeeded",
-    user: user._id,
-    sessionId: created.sessionId,
-    req,
-  });
-  setRefreshCookie(res, created.refreshToken);
-  return res.status(200).json({
-    success: true,
-    data: { accessToken, user: user.toSafeObject() },
-  });
 });
 
 export const refresh = catchAsync(async (req, res) => {
@@ -234,6 +247,14 @@ export const logout = catchAsync(async (req, res) => {
       req,
     });
   }
+  return res
+    .status(200)
+    .json({ success: true, data: { message: "Logged out successfully" } });
+  await revokePushDeviceByIdentifier({
+    owner: identified?.user || req.user?.id,
+    deviceId: req.get("X-Push-Device-Id"),
+    reason: "logout",
+  });
   return res
     .status(200)
     .json({ success: true, data: { message: "Logged out successfully" } });

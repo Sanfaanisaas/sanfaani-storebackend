@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { policyAcceptanceSchema } from "./PolicyVersion.js";
 
 export const PROCUREMENT_REQUEST_STATUSES = Object.freeze([
   "SUBMITTED", "UNDER_REVIEW", "CLARIFICATION_REQUIRED", "QUOTATION_ISSUED",
@@ -29,6 +30,7 @@ const clarificationSchema = new mongoose.Schema({
 
 const schema = new mongoose.Schema({
   customer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true, immutable: true },
+  organisation: { type: mongoose.Schema.Types.ObjectId, ref: "Organisation", default: null, index: true, immutable: true },
   organisationName: { type: String, required: true, trim: true, maxlength: 160 },
   organisationType: { type: String, enum: ["business", "school", "nonprofit", "government", "other"], required: true },
   contactName: { type: String, required: true, trim: true, maxlength: 160 },
@@ -51,6 +53,7 @@ const schema = new mongoose.Schema({
   clarifications: { type: [clarificationSchema], default: [] },
   idempotencyKey: { type: String, trim: true, minlength: 1, maxlength: 128, immutable: true },
   idempotencyFingerprint: { type: String, match: /^[a-f0-9]{64}$/, immutable: true },
+  policyAcceptances: { type: [policyAcceptanceSchema], default: [], immutable: true },
 }, { timestamps: true });
 
 schema.pre("validate", function validateBudget() {
@@ -58,5 +61,6 @@ schema.pre("validate", function validateBudget() {
 });
 schema.index({ customer: 1, idempotencyKey: 1 }, { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } }, name: "customer_procurement_idempotency" });
 schema.index({ customer: 1, updatedAt: -1 }, { name: "customer_procurement_list" });
+schema.index({ organisation: 1, updatedAt: -1 }, { name: "organisation_procurement_list" });
 
 export default mongoose.model("ProcurementRequest", schema);
