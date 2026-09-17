@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { policyAcceptanceSchema } from "./PolicyVersion.js";
 
 const timelineSchema = new mongoose.Schema({
   status: { type: String, enum: ["SUBMITTED", "INSPECTION_REQUIRED", "UNDER_INSPECTION", "APPROVED", "REJECTED", "REMEDY_IN_PROGRESS", "RESOLVED", "CANCELLED"], required: true },
@@ -19,6 +20,7 @@ const schema = new mongoose.Schema({
   idempotencyKey: { type: String, trim: true, minlength: 1, maxlength: 128, immutable: true },
   idempotencyFingerprint: { type: String, match: /^[a-f0-9]{64}$/, immutable: true },
   privateNotes: { type: String, select: false, maxlength: 2000, default: null },
+  policyAcceptances: { type: [policyAcceptanceSchema], default: [], immutable: true },
 }, { timestamps: true });
 
 schema.index({ order: 1, status: 1 });

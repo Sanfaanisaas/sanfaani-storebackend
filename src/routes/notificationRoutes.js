@@ -1,9 +1,10 @@
 import { Router } from "express";
-import { authenticate } from "../middleware/authenticate.js";
+import { authenticate, authorize } from "../middleware/authenticate.js";
 import { validate } from "../middleware/validate.js";
 import { notificationLimiter } from "../middleware/rateLimiter.js";
-import { getNotifications, getUnreadCount, markAllNotificationsRead, markNotificationRead, getNotificationPreferences, patchNotificationPreferences } from "../controllers/notificationController.js";
+import { getNotifications, getUnreadCount, markAllNotificationsRead, markNotificationRead, getNotificationPreferences, patchNotificationPreferences, getNotificationDeliveries } from "../controllers/notificationController.js";
 import { getNotificationsQuerySchema, notificationIdParamSchema, updateNotificationPreferencesSchema } from "../utils/validators/notificationValidators.js";
+import { USER_ROLES } from "../utils/constants.js";
 
 const router = Router();
 
@@ -43,6 +44,7 @@ router.get("/", authenticate, notificationLimiter, validate(getNotificationsQuer
  *         description: Unread notification count
  */
 router.get("/unread-count", authenticate, notificationLimiter, getUnreadCount);
+router.get("/deliveries", authenticate, authorize(USER_ROLES.OPS_MANAGER, USER_ROLES.SUPER_ADMIN), notificationLimiter, getNotificationDeliveries);
 
 /**
  * @swagger

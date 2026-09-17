@@ -19,6 +19,7 @@ import {
 import { catchAsync } from "../utils/catchAsync.js";
 import AppError from "../utils/AppError.js";
 import { clearRefreshCookie, REFRESH_COOKIE_NAME, setRefreshCookie } from "../utils/refreshCookie.js";
+import { revokePushDeviceByIdentifier } from "../services/pushDeviceService.js";
 
 export const PASSWORD_HASH_COST = 12;
 export const DUMMY_PASSWORD_HASH = "$2b$12$STwmCXXAcG1juP88YSrvc.xvHyHZ6Kd.MLSEIDJg.cpO16B1PEc0K";
@@ -52,9 +53,9 @@ export const register = catchAsync(async (req, res) => {
 
 export const login = catchAsync(async (req, res) => {
   const { email, password } = req.body;
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email }).select("+authVersion");
   const matches = await bcrypt.compare(password, user?.passwordHash || DUMMY_PASSWORD_HASH);
-  if (!user || !matches) {
+  if (!user || !matches || user.status !== "ACTIVE") {
     await recordSecurityEvent({
       event: "login_failed", user: user?._id, req, metadata: { reason: "invalid_credentials" },
     });
@@ -176,6 +177,7 @@ export const logout = catchAsync(async (req, res) => {
       event: "logout", user: identified.user, sessionId: identified.sessionId, req,
     });
   }
+  await revokePushDeviceByIdentifier({ owner: identified?.user || req.user?.id, deviceId: req.get("X-Push-Device-Id"), reason: "logout" });
   return res.status(200).json({ success: true, data: { message: "Logged out successfully" } });
 });
 

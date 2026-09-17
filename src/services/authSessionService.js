@@ -118,8 +118,8 @@ export const rotateRefreshSession = async ({ token, claims, req }) => {
     await revokeFamily(old.familyId, "refresh_token_reuse_detected");
     throw new RefreshSessionError("refresh_token_reuse_detected", true);
   }
-  const user = await User.findById(claims.userId);
-  if (!user) {
+  const user = await User.findById(claims.userId).select("+authVersion");
+  if (!user || user.status !== "ACTIVE") {
     await revokeFamily(old.familyId, "user_no_longer_exists");
     throw new RefreshSessionError("refresh_user_missing");
   }

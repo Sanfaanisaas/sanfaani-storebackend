@@ -24,6 +24,7 @@ const requirementItemSchema = z.object({
 });
 
 export const createProcurementRequestSchema = z.object({
+  organisationId: objectIdSchema.optional(),
   organisationName: z.string().trim().min(1, "Organisation name is required").max(160),
   organisationType: z.enum(["business", "school", "nonprofit", "government", "other"]),
   contactName: z.string().trim().min(1, "Contact name is required").max(160),
@@ -70,6 +71,20 @@ export const respondProcurementClarificationSchema = z.object({
 
 export const decideProcurementQuotationSchema = z.object({
   version: z.preprocess((val) => parseInt(val, 10), z.number().int().min(1, "Quotation version is required")),
+});
+
+export const convertProcurementQuotationSchema = z.object({
+  organisationId: objectIdSchema,
+  expectedVersion: z.coerce.number().int().min(1),
+  paymentMethod: z.enum(["paystack", "bank_transfer"]),
+  shippingAddress: z.object({
+    street: z.string().trim().min(1).max(300),
+    city: z.string().trim().min(1).max(120),
+    state: z.string().trim().min(1).max(120),
+    postalCode: z.string().trim().max(40).optional(),
+    country: z.string().trim().min(1).max(120),
+  }),
+  purchaseOrderReference: z.string().trim().min(1).max(128).optional().nullable(),
 });
 
 export const createStaffProcurementQuotationSchema = z.object({

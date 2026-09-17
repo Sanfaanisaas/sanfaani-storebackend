@@ -21,6 +21,12 @@ const envSchema = z.object({
   OBJECT_STORAGE_SECRET_ACCESS_KEY: z.string().min(16).max(512).optional(),
   OBJECT_STORAGE_FORCE_PATH_STYLE: z.enum(["true", "false"]).default("true"),
   OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(300),
+  PUSH_TOKEN_ENCRYPTION_KEY: z.string().regex(/^[a-fA-F0-9]{64}$/).optional(),
+  EMAIL_PROVIDER_ENDPOINT: z.string().url().optional(),
+  EMAIL_PROVIDER_API_KEY: z.string().min(16).max(512).optional(),
+  EMAIL_FROM: z.string().email().optional(),
+  PUSH_PROVIDER_ENDPOINT: z.string().url().optional(),
+  PUSH_PROVIDER_API_KEY: z.string().min(16).max(512).optional(),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   SENTRY_DSN: z.string().url().optional(),
 }).superRefine((data, ctx) => {
@@ -67,6 +73,9 @@ const envSchema = z.object({
         });
       }
     }
+    for (const key of ["PUSH_TOKEN_ENCRYPTION_KEY", "EMAIL_PROVIDER_ENDPOINT", "EMAIL_PROVIDER_API_KEY", "EMAIL_FROM", "PUSH_PROVIDER_ENDPOINT", "PUSH_PROVIDER_API_KEY"]) {
+      if (!data[key]) ctx.addIssue({ code: "custom", message: `${key} is required in production for notification delivery`, path: [key] });
+    }
   }
 
   const expectedPrefix =
@@ -112,6 +121,12 @@ export const env = {
   objectStorageSecretAccessKey: parsed.data.OBJECT_STORAGE_SECRET_ACCESS_KEY,
   objectStorageForcePathStyle: parsed.data.OBJECT_STORAGE_FORCE_PATH_STYLE === "true",
   objectStorageSignedUrlTtlSeconds: parsed.data.OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS,
+  pushTokenEncryptionKey: parsed.data.PUSH_TOKEN_ENCRYPTION_KEY,
+  emailProviderEndpoint: parsed.data.EMAIL_PROVIDER_ENDPOINT,
+  emailProviderApiKey: parsed.data.EMAIL_PROVIDER_API_KEY,
+  emailFrom: parsed.data.EMAIL_FROM,
+  pushProviderEndpoint: parsed.data.PUSH_PROVIDER_ENDPOINT,
+  pushProviderApiKey: parsed.data.PUSH_PROVIDER_API_KEY,
   nodeEnv: parsed.data.NODE_ENV,
   sentryDsn: parsed.data.SENTRY_DSN,
 };

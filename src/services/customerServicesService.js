@@ -10,6 +10,7 @@ import { SERVICE_RESPONSIBILITY_POLICY } from "./customerPolicyService.js";
 import { createCustomerNotification } from "./notificationService.js";
 import { conflict, documentMetadata, fingerprint, idText, isObjectId, listEvidenceSummaries, pageInput, pagination, requireIdempotencyKey, unavailable } from "./customerDomainService.js";
 import { writeAuditLog } from "./auditService.js";
+import { capturePolicyAcceptances } from "./contentService.js";
 
 const requestDto = async (item) => ({
   id: idText(item._id),
@@ -112,9 +113,13 @@ export const createServiceRequest = async ({ customer, input, idempotencyKey }) 
   }
 
   try {
+    const policyAcceptances = await capturePolicyAcceptances("service");
+    const responsibilityPolicy = policyAcceptances.find((item) => item.key === "repair_custody_terms");
     const request = await ServiceRequest.create({
       customer,
       ...normalized,
+      responsibilityPolicyVersion: responsibilityPolicy?.version?.toString() || normalized.responsibilityPolicyVersion,
+      policyAcceptances,
       idempotencyKey: key,
       idempotencyFingerprint: hash,
       status: "ASSESSMENT_REQUIRED",
@@ -265,7 +270,9 @@ export const createStaffServiceQuote = async ({ actor, requestId, input }) => {
     estimatedDays: input.estimatedDays,
     expiresAt: input.expiresAt,
     depositRequirement: input.depositRequirement || { required: false, amount: 0, currency: "NGN", dueBeforeWork: false },
-    paymentState: input.paymentState || { status: "not_required", confirmedAmount: 0, remainingAmount: 0 },
+    paymentState: input.depositRequirement?.required
+      ? { status: "pending", confirmedAmount: 0, remainingAmount: input.depositRequirement.amount }
+      : { status: "not_required", confirmedAmount: 0, remainingAmount: 0 },
   });
 
   request.status = "AWAITING_DECISION";
@@ -302,6 +309,9 @@ const planDto = (plan) => ({
   currency: plan.currency,
   termsVersion: plan.termsVersion,
   cancellationInstructions: plan.cancellationInstructions,
+  version: plan.version || 0,
+  cancellation: plan.status === "CANCELLED" ? { at: plan.cancelledAt || null, reason: plan.cancellationReason || null } : null,
+  renewedFromId: plan.renewedFrom ? idText(plan.renewedFrom) : null,
   createdAt: plan.createdAt,
   updatedAt: plan.updatedAt,
 });

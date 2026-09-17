@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { policyAcceptanceSchema } from "./PolicyVersion.js";
 const { Schema } = mongoose;
 
 const WarrantySchema = new Schema({
@@ -13,6 +14,7 @@ const WarrantySchema = new Schema({
   claimAllowance: { type: Number, min: 0, default: 1 },
   policyVersion: { type: String, default: "2024-01-01", maxlength: 64 },
   policySnapshot: { coverage: { type: String, default: "Standard repair workmanship coverage", maxlength: 1000 }, exclusions: { type: [String], default: [] } },
+  policyAcceptances: { type: [policyAcceptanceSchema], default: [], immutable: true },
   issuedAt: { type: Date, default: Date.now },
   expiresAt: { type: Date, required: true },
 }, { timestamps: true });

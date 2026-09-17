@@ -9,6 +9,7 @@ import mongoose from "mongoose";
 import { writeAuditLog } from "./auditService.js";
 import { authorizeScopedTrackingToken, createTrackingToken, isObjectId, rotateTrackingToken, trackingUnavailable } from "./repairTrackingService.js";
 import { assertRepairFinanceGate } from "./repairFinanceService.js";
+import { capturePolicyAcceptances } from "./contentService.js";
 
 const NEXT_ACTION_BY_STATUS = Object.freeze({
   [REPAIR_STATUS.REQUESTED]: "We will review your repair request.",
@@ -43,7 +44,8 @@ export const createRepairWithTrackingToken = async ({ customerId, device, issueD
     let repair;
     let trackingToken;
     await session.withTransaction(async () => {
-      repair = (await Repair.create([{ customer: customerId, device, issueDescription, privacyAcknowledged }], { session }))[0];
+      const policyAcceptances = await capturePolicyAcceptances("repair_intake", { session });
+      repair = (await Repair.create([{ customer: customerId, device, issueDescription, privacyAcknowledged, policyAcceptances }], { session }))[0];
       trackingToken = await createTrackingToken(repair._id, { session });
     });
     return { repair, trackingToken };
@@ -213,7 +215,9 @@ export const handoverRepair = async (repairId, actorId, actorRole, handover = {}
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + WARRANTY_PERIOD_DAYS);
       const deviceSummary = `${repair.device.brand} ${repair.device.model} (${repair.device.type})`;
-      [warranty] = await Warranty.create([{ repair: repair._id, customer: repair.customer, deviceSummary, expiresAt }], { session });
+      const policyAcceptances = await capturePolicyAcceptances("warranty", { session });
+      const warrantyPolicy = policyAcceptances.find((item) => item.key === "warranty_policy");
+      [warranty] = await Warranty.create([{ repair: repair._id, customer: repair.customer, deviceSummary, expiresAt, policyVersion: warrantyPolicy?.version?.toString() || undefined, policyAcceptances }], { session });
       await writeAuditLog(actorId, "REPAIR_HANDED_OVER", "Repair", repair._id, { financeGate: "passed", qcGate: "passed" }, session);
     });
     return { repair, warranty };

@@ -12,6 +12,7 @@ const lineSchema = new mongoose.Schema({
 const schema = new mongoose.Schema({
   request: { type: mongoose.Schema.Types.ObjectId, ref: "ProcurementRequest", required: true, index: true, immutable: true },
   customer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true, immutable: true },
+  organisation: { type: mongoose.Schema.Types.ObjectId, ref: "Organisation", default: null, index: true, immutable: true },
   version: { type: Number, required: true, min: 1, immutable: true },
   lineItems: { type: [lineSchema], validate: [(items) => items.length > 0, "Quotation requires line items"] },
   subtotal: { type: Number, required: true, min: 0 },

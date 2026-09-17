@@ -1,14 +1,16 @@
 import Order from "../models/Order.js";
 import mongoose from "mongoose";
-import { ORDER_STATUS } from "../utils/constants.js";
-import { writeAuditLog } from "../services/auditService.js";
 import { isPayOnPickupEligible } from "../services/orderService.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import pdfkit from "pdfkit";
-import fs from "fs";
-import path from "path";
-import { env } from "../config/env.js";
-import AppError from "../utils/AppError.js";
+import {
+  getOwnerInvoice,
+  getOwnerReceipt,
+} from "../services/financialDocumentService.js";
+import {
+  attachBankTransferEvidence,
+  verifyBankTransferPayment,
+} from "../services/manualPaymentService.js";
 import {
   cancelOrderWithReservations,
   fulfillOrder,
@@ -62,40 +64,18 @@ export const getOrderById = catchAsync(async (req, res) => {
  * Upload manual payment receipt
  */
 export const uploadReceipt = catchAsync(async (req, res) => {
-  const { id } = req.params;
-  const order = await Order.findOne({ _id: id, userId: req.user.id });
-
-  if (!order) {
-    return res.status(404).json({
-      success: false,
-      message: "Order not found",
-    });
-  }
-
-  if (!req.file) {
-    return res.status(400).json({
-      success: false,
-      message: "Please upload a receipt file",
-    });
-  }
-
-  if (env.nodeEnv === "production") {
-    throw new AppError("Private evidence storage is not configured", 503, [
-      {
-        code: "evidence_storage_unavailable",
-        message: "Receipt uploads are temporarily unavailable",
-      },
-    ]);
-  }
-  // Test/development adapters must persist an evidence record before assigning a receipt reference.
-  // Do not retain an ephemeral filesystem path.
-  order.receiptUrl = null;
-  order.paymentMethod = "bank_transfer";
-  await order.save();
-
-  res.status(200).json({
+  const result = await attachBankTransferEvidence({
+    orderId: req.params.id,
+    ownerId: req.user.id,
+    file: req.file,
+  });
+  res.status(201).json({
     success: true,
-    data: order.toPublicOrder(),
+    data: {
+      order: result.order.toPublicOrder(),
+      payment: result.payment,
+      evidence: result.evidence,
+    },
   });
 });
 
@@ -103,19 +83,26 @@ export const uploadReceipt = catchAsync(async (req, res) => {
  * Check if order is eligible for pickup
  */
 export const checkEligiblePickup = catchAsync(async (req, res) => {
-  const { total, shippingAddress } = req.query;
-
-  const orderData = {
-    total,
-    shippingAddress,
-  };
-
-  const eligible = isPayOnPickupEligible(orderData);
+  const id = req.params.id || req.query.orderId;
+  const order = mongoose.isObjectIdOrHexString(id)
+    ? await Order.findOne({ _id: id, userId: req.user.id })
+    : null;
+  if (!order) {
+    return res.status(404).json({
+      success: false,
+      message: "Order information is unavailable",
+      errors: [{ code: "order_unavailable", message: "Check the order reference and permissions" }],
+    });
+  }
+  const eligible = order.paymentMethod === "pay_on_pickup"
+    && order.paymentStatus === "pending"
+    && isPayOnPickupEligible(order);
 
   res.status(200).json({
     success: true,
     data: {
       eligible,
+      expiresAt: order.payOnPickupExpiresAt,
       message: eligible
         ? "Order is eligible for pay-on-pickup."
         : "Order is not eligible for pay-on-pickup based on location or total amount.",
@@ -127,39 +114,10 @@ export const checkEligiblePickup = catchAsync(async (req, res) => {
  * Verify bank transfer payment (Admin only)
  */
 export const verifyBankTransfer = catchAsync(async (req, res) => {
-  const { id } = req.params;
-
-  const order = await Order.findOneAndUpdate(
-    {
-      _id: id,
-      paymentMethod: "bank_transfer",
-      paymentStatus: "pending",
-    },
-    {
-      paymentStatus: "paid",
-      verifiedBy: req.user.id,
-      verifiedAt: new Date(),
-      status: ORDER_STATUS.PAID,
-    },
-    { new: true },
-  );
-
-  if (!order) {
-    return res.status(400).json({
-      success: false,
-      message:
-        "Order not eligible for verification (not found, already paid, or not bank transfer)",
-    });
-  }
-
-  await writeAuditLog(
-    req.user.id,
-    "BANK_TRANSFER_VERIFIED",
-    "Order",
-    order._id,
-    { previousStatus: "pending", newStatus: "paid" },
-  );
-
+  const order = await verifyBankTransferPayment({
+    orderId: req.params.id,
+    actorId: req.user.id,
+  });
   res.status(200).json({
     success: true,
     data: order.toPublicOrder(),
@@ -208,29 +166,19 @@ export const deliverOrder = catchAsync(async (req, res) => {
  * Generate and stream PDF receipt
  */
 export const generateReceiptPDF = catchAsync(async (req, res) => {
-  const { id } = req.params;
-  const order = await Order.findById(id).populate("userId", "email");
+  const document = await getOwnerReceipt({ orderId: req.params.id, ownerId: req.user.id });
+  streamFinancialDocument(document, res);
+});
 
-  if (!order) {
-    return res.status(404).json({
-      success: false,
-      message: "Order not found",
-    });
-  }
+export const generateInvoicePDF = catchAsync(async (req, res) => {
+  const document = await getOwnerInvoice({ orderId: req.params.id, ownerId: req.user.id });
+  streamFinancialDocument(document, res);
+});
 
-  // Allow access if user is the owner OR is an admin/authorized role
-  const isOwner = order.userId._id.toString() === req.user.id.toString();
-  const isAdmin = ["product_admin", "super_admin"].includes(req.user.role);
-
-  if (!isOwner && !isAdmin) {
-    return res.status(403).json({
-      success: false,
-      message: "You do not have permission to access this receipt",
-    });
-  }
-
+const streamFinancialDocument = (document, res) => {
   const doc = new pdfkit();
-  const filename = `receipt_${order._id}.pdf`;
+  const label = document.kind === "RECEIPT" ? "Receipt" : "Invoice";
+  const filename = `${document.kind.toLowerCase()}_${document.order}.pdf`;
 
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
@@ -238,32 +186,32 @@ export const generateReceiptPDF = catchAsync(async (req, res) => {
   doc.pipe(res);
 
   // PDF Content
-  doc.fontSize(20).text("Order Receipt", { align: "center" });
+  doc.fontSize(20).text(`Order ${label}`, { align: "center" });
   doc.moveDown();
-  doc.fontSize(12).text(`Order ID: ${order._id}`);
-  doc.text(`Date: ${order.createdAt.toLocaleDateString()}`);
-  doc.text(`Payment Method: ${order.paymentMethod}`);
-  doc.text(`Payment Status: ${order.paymentStatus}`);
-  doc.text(`Order Status: ${order.status}`);
+  doc.fontSize(12).text(`Document: ${document.documentNumber}`);
+  doc.text(`Order ID: ${document.order}`);
+  doc.text(`Issued: ${document.issuedAt.toISOString()}`);
+  doc.text(`Payment Method: ${document.snapshot.paymentMethod}`);
+  if (document.snapshot.paidAt) doc.text(`Paid: ${document.snapshot.paidAt.toISOString()}`);
   doc.moveDown();
 
   doc.text("Items:", { underline: true });
-  order.items.forEach((item) => {
+  document.snapshot.items.forEach((item) => {
     doc.text(
-      `${item.nameSnapshot} x ${item.quantity} - NGN ${item.priceSnapshot.toLocaleString()}`,
+      `${item.name} x ${item.quantity} - ${document.currency} ${item.lineTotal.toLocaleString()}`,
     );
   });
 
   doc.moveDown();
-  doc.text(`Subtotal: NGN ${order.subtotal.toLocaleString()}`);
-  doc.text(`Tax: NGN ${order.tax.toLocaleString()}`);
-  doc.text(`Shipping: NGN ${order.shippingCost.toLocaleString()}`);
+  doc.text(`Subtotal: ${document.currency} ${document.snapshot.subtotal.toLocaleString()}`);
+  doc.text(`Tax: ${document.currency} ${document.snapshot.tax.toLocaleString()}`);
+  doc.text(`Shipping: ${document.currency} ${document.snapshot.shipping.toLocaleString()}`);
   doc
     .fontSize(14)
-    .text(`Total: NGN ${order.total.toLocaleString()}`, { bold: true });
+    .text(`Total: ${document.currency} ${document.snapshot.total.toLocaleString()}`, { bold: true });
 
   doc.end();
-});
+};
 
 /**
  * Filterable order queue for staff

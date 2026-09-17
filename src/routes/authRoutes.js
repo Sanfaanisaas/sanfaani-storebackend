@@ -3,10 +3,13 @@ import {
   listSessions, login, logout, refresh, register, revokeAllSessions, revokeSession,
 } from "../controllers/authController.js";
 import { authenticate } from "../middleware/authenticate.js";
+import { optionalAccessAuthentication } from "../middleware/optionalAuthenticate.js";
 import { protectCookieAuth } from "../middleware/csrfOrigin.js";
 import { authLimiter, refreshLimiter } from "../middleware/rateLimiter.js";
 import { validate } from "../middleware/validate.js";
 import { loginSchema, registerSchema, sessionParamsSchema } from "../utils/validators/authValidators.js";
+import { acceptStaffInvitation } from "../controllers/staffIdentityController.js";
+import { acceptStaffInvitationSchema } from "../utils/validators/staffIdentityValidators.js";
 
 const router = Router();
 
@@ -21,6 +24,23 @@ const router = Router();
  *       409: { description: Email is already registered }
  */
 router.post("/register", authLimiter, validate(registerSchema), register);
+
+/**
+ * @swagger
+ * /auth/staff-invitations/accept:
+ *   post:
+ *     summary: Activate an invited staff identity with a one-time opaque token
+ *     tags: [StaffIdentity]
+ *     parameters:
+ *       - in: header
+ *         name: X-Staff-Invitation-Token
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Staff identity activated }
+ *       404: { description: Invitation missing, invalid, expired, used, or revoked }
+ */
+router.post("/staff-invitations/accept", authLimiter, validate(acceptStaffInvitationSchema, "body"), acceptStaffInvitation);
 
 /**
  * @swagger
@@ -57,7 +77,7 @@ router.post("/refresh", protectCookieAuth, refreshLimiter, refresh);
  *     responses:
  *       200: { description: Logout complete, including when the cookie was absent or invalid }
  */
-router.post("/logout", protectCookieAuth, logout);
+router.post("/logout", protectCookieAuth, optionalAccessAuthentication, logout);
 
 /**
  * @swagger

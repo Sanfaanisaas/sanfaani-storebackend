@@ -13,21 +13,7 @@ export const getOrdersQuerySchema = z.object({
 });
 
 export const checkEligiblePickupSchema = z.object({
-  total: z.preprocess((val) => parseFloat(val), z.number().min(0)),
-  shippingAddress: z.preprocess(
-    (val) => {
-      try {
-        return typeof val === "string" ? JSON.parse(val) : val;
-      } catch {
-        return val;
-      }
-    },
-    z
-      .object({
-        city: z.string().min(1),
-      })
-      .passthrough(),
-  ),
+  orderId: z.string().regex(/^[a-f\d]{24}$/i),
 });
 
 export const getOrdersQueueQuerySchema = z.object({
@@ -51,7 +37,7 @@ export const dispatchOrderSchema = z.object({
   trackingReference: z.string().trim().min(1).optional(),
   courierName: z.string().trim().min(1).optional(),
   assignedSerials: z.array(z.string().trim()).optional(),
-});
+}).default({});
 
 export const collectOrderSchema = z.object({
   identityDocumentType: z.enum([
