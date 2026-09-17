@@ -7395,6 +7395,26 @@
         ]
       }
     },
+    "/ready": {
+      "get": {
+        "operationId": "getready",
+        "responses": {
+          "200": {
+            "description": "Application is ready for traffic"
+          },
+          "503": {
+            "description": "A required dependency is unavailable"
+          },
+          "default": {
+            "$ref": "#/components/responses/StandardError"
+          }
+        },
+        "summary": "Check required dependency readiness without exposing secrets",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
     "/repairs": {
       "post": {
         "description": "Authenticated customers only. Creation and first tracking-token issuance are transactional; the returned token is shown once and must be retained by the customer.",
