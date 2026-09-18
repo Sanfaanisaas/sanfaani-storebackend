@@ -23,11 +23,6 @@ import {
   REFRESH_COOKIE_NAME,
   setRefreshCookie,
 } from "../utils/refreshCookie.js";
-import {
-  clearRefreshCookie,
-  REFRESH_COOKIE_NAME,
-  setRefreshCookie,
-} from "../utils/refreshCookie.js";
 import { revokePushDeviceByIdentifier } from "../services/pushDeviceService.js";
 
 export const PASSWORD_HASH_COST = 12;
@@ -68,62 +63,60 @@ export const register = catchAsync(async (req, res) => {
 
 export const login = catchAsync(async (req, res) => {
   const { email, password } = req.body;
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email }).select(
+    "+authVersion +passwordHash",
+  );
   const matches = await bcrypt.compare(
     password,
     user?.passwordHash || DUMMY_PASSWORD_HASH,
   );
-  if (!user || !matches) {
-    const user = await User.findOne({ email }).select("+authVersion");
-    const matches = await bcrypt.compare(
-      password,
-      user?.passwordHash || DUMMY_PASSWORD_HASH,
-    );
-    if (!user || !matches || user.status !== "ACTIVE") {
-      await recordSecurityEvent({
-        event: "login_failed",
-        user: user?._id,
-        req,
-        metadata: { reason: "invalid_credentials" },
-      });
-      return fail(
-        res,
-        "Invalid credentials",
-        "invalid_credentials",
-        "Email or password is incorrect",
-      );
-    }
 
-    let created;
-    try {
-      created = await createLoginSession(user, req);
-    } catch {
-      await recordSecurityEvent({
-        event: "login_failed",
-        user: user._id,
-        req,
-        metadata: { reason: "session_persistence_failed" },
-      });
-      throw new AppError("Authentication service unavailable", 503, [
-        {
-          code: "session_persistence_failed",
-          message: "Please try again later",
-        },
-      ]);
-    }
-    const accessToken = generateAccessToken(user);
+  if (!user || !matches || user.status !== "ACTIVE") {
     await recordSecurityEvent({
-      event: "login_succeeded",
-      user: user._id,
-      sessionId: created.sessionId,
+      event: "login_failed",
+      user: user?._id,
       req,
+      metadata: { reason: "invalid_credentials" },
     });
-    setRefreshCookie(res, created.refreshToken);
-    return res.status(200).json({
-      success: true,
-      data: { accessToken, user: user.toSafeObject() },
-    });
+    return fail(
+      res,
+      "Invalid credentials",
+      "invalid_credentials",
+      "Email or password is incorrect",
+    );
   }
+
+  let created;
+  try {
+    created = await createLoginSession(user, req);
+  } catch {
+    await recordSecurityEvent({
+      event: "login_failed",
+      user: user._id,
+      req,
+      metadata: { reason: "session_persistence_failed" },
+    });
+    throw new AppError("Authentication service unavailable", 503, [
+      {
+        code: "session_persistence_failed",
+        message: "Please try again later",
+      },
+    ]);
+  }
+
+  const accessToken = generateAccessToken(user);
+  await recordSecurityEvent({
+    event: "login_succeeded",
+    user: user._id,
+    sessionId: created.sessionId,
+    req,
+  });
+
+  setRefreshCookie(res, created.refreshToken);
+  return res.status(200).json({
+    success: true,
+    data: { accessToken, user: user.toSafeObject() },
+  });
 });
 
 export const refresh = catchAsync(async (req, res) => {
@@ -213,6 +206,7 @@ export const logout = catchAsync(async (req, res) => {
   const token = req.cookies?.[REFRESH_COOKIE_NAME];
   clearRefreshCookie(res);
   let identified = null;
+
   if (token) {
     let claims;
     try {
@@ -239,6 +233,7 @@ export const logout = catchAsync(async (req, res) => {
       }
     }
   }
+
   if (identified) {
     await recordSecurityEvent({
       event: "logout",
@@ -247,14 +242,13 @@ export const logout = catchAsync(async (req, res) => {
       req,
     });
   }
-  return res
-    .status(200)
-    .json({ success: true, data: { message: "Logged out successfully" } });
+
   await revokePushDeviceByIdentifier({
     owner: identified?.user || req.user?.id,
     deviceId: req.get("X-Push-Device-Id"),
     reason: "logout",
   });
+
   return res
     .status(200)
     .json({ success: true, data: { message: "Logged out successfully" } });
@@ -302,7 +296,6 @@ export const revokeSession = catchAsync(async (req, res) => {
     .json({ success: true, data: { message: "Session revoked" } });
 });
 
-// DELETE /sessions revokes every session for the authenticated account.
 export const revokeAllSessions = catchAsync(async (req, res) => {
   const count = await revokeAllUserSessions({
     userId: req.user.id,
