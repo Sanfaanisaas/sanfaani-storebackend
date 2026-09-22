@@ -31,7 +31,13 @@ import { evidenceUploadLimiter } from "../middleware/rateLimiter.js";
 // Disk is never an evidence store. Production upload persistence must be a private object-store adapter.
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+    files: 1,
+    fields: 1,
+    fieldSize: 1024,
+    parts: 3,
+  },
   fileFilter: (req, file, callback) =>
     callback(
       null,

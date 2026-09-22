@@ -62,6 +62,7 @@ export const QUOTE_ACTIONABLE_STATUSES = Object.freeze([
   QUOTE_STATUS.VIEWED,
 ]);
 
+
 export const USER_ROLES = {
   CUSTOMER: "customer",
   SALES_ADVISOR: "sales_advisor",
@@ -79,11 +80,11 @@ export const USER_ROLES = {
 };
 
 export const PRODUCT_CONDITION = Object.freeze({
-  NEW: "new",
-  REFURBISHED_GRADE_A: "refurbished_grade_a",
-  REFURBISHED_GRADE_B: "refurbished_grade_b",
-  USED_GRADE_A: "used_grade_a",
-  USED_GRADE_B: "used_grade_b",
+  NEW: 'new',
+  REFURBISHED_GRADE_A: 'refurbished_grade_a',
+  REFURBISHED_GRADE_B: 'refurbished_grade_b',
+  USED_GRADE_A: 'used_grade_a',
+  USED_GRADE_B: 'used_grade_b',
 });
 
 export const LOW_STOCK_THRESHOLD = 5;
@@ -91,53 +92,48 @@ export const LOW_STOCK_THRESHOLD = 5;
 export const WARRANTY_PERIOD_DAYS = 90;
 
 export const CLAIM_STATUS = Object.freeze({
-  SUBMITTED: "submitted",
-  SCREENING: "screening",
-  INSPECTION_REQUIRED: "inspection_required",
-  UNDER_INSPECTION: "under_inspection",
-  APPROVED: "approved",
-  REJECTED: "rejected",
-  REMEDY_IN_PROGRESS: "remedy_in_progress",
-  RESOLVED: "resolved",
-  CLOSED: "closed",
-  CANCELLED: "cancelled",
+  SUBMITTED: 'submitted',
+  SCREENING: 'screening',
+  INSPECTION_REQUIRED: 'inspection_required',
+  UNDER_INSPECTION: 'under_inspection',
+  APPROVED: 'approved',
+  REJECTED: 'rejected',
+  REMEDY_IN_PROGRESS: 'remedy_in_progress',
+  RESOLVED: 'resolved',
+  CLOSED: 'closed',
+  CANCELLED: 'cancelled',
 });
 
 export const SUPPORT_TICKET_STATUS = Object.freeze({
-  OPEN: "open",
-  IN_PROGRESS: "in_progress",
-  RESOLVED: "resolved",
-  CLOSED: "closed",
+  OPEN: 'open',
+  IN_PROGRESS: 'in_progress',
+  RESOLVED: 'resolved',
+  CLOSED: 'closed',
 });
 
 export const STOCK_MOVEMENT_REASON = {
-  SALE: "sale",
-  RESTOCK: "restock",
-  ADJUSTMENT: "adjustment",
-  RETURN: "return",
-  DAMAGE: "damage",
-  SALE: "sale",
-  RESTOCK: "restock",
-  ADJUSTMENT: "adjustment",
-  RETURN: "return",
-  DAMAGE: "damage",
-  TRANSFER: "transfer",
-  QUARANTINE_RELEASE: "quarantine_release",
-  COUNT_RECONCILIATION: "count_reconciliation",
-  OPENING_BALANCE_MIGRATION: "opening_balance_migration",
+  SALE: 'sale',
+  RESTOCK: 'restock',
+  ADJUSTMENT: 'adjustment',
+  RETURN: 'return',
+  DAMAGE: 'damage',
+  TRANSFER: 'transfer',
+  QUARANTINE_RELEASE: 'quarantine_release',
+  COUNT_RECONCILIATION: 'count_reconciliation',
+  OPENING_BALANCE_MIGRATION: 'opening_balance_migration',
 };
 
 export const PRODUCT_STATUS = Object.freeze({
-  DRAFT: "draft",
-  ACTIVE: "active",
-  ARCHIVED: "archived",
+  DRAFT: 'draft',
+  ACTIVE: 'active',
+  ARCHIVED: 'archived',
 });
 
-export const WARRANTY_TERMS_VERSION = "2024-01-01";
+export const WARRANTY_TERMS_VERSION = '2024-01-01';
 
 export const AVAILABILITY_STATUS = Object.freeze({
-  IN_STOCK: "in_stock",
-  LOW_STOCK: "low_stock",
-  OUT_OF_STOCK: "out_of_stock",
-  SOURCING: "sourcing",
+  IN_STOCK: 'in_stock',
+  LOW_STOCK: 'low_stock',
+  OUT_OF_STOCK: 'out_of_stock',
+  SOURCING: 'sourcing',
 });
