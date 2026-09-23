@@ -7,6 +7,8 @@ import { env } from "./config/env.js";
 import { isTrustedOrigin, parseTrustedOrigins } from "./config/trustedOrigins.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { normalizeErrorEnvelope } from "./middleware/errorEnvelope.js";
+import { protectCookieAuth } from "./middleware/csrfOrigin.js";
+import { apiLimiter } from "./middleware/rateLimiter.js";
 import AppError from "./utils/AppError.js";
 
 import healthRoutes from "./routes/healthRoutes.js";
@@ -69,6 +71,8 @@ app.use("/api/payments/paystack/webhook", express.raw({ type: "application/json"
 
 app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
+app.use(apiLimiter);
+app.use(protectCookieAuth);
 
 // Routes
 app.use("/api", healthRoutes);

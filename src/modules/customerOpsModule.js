@@ -59,8 +59,8 @@ const assertPurchasableInventory = (variant, quantity) => {
 export class CustomerOperationsModule {
   async loadPurchasableVariant({ productId, variantSku }) {
     const [product, variant] = await Promise.all([
-      Product.findById(productId),
-      Variant.findOne({ sku: variantSku }),
+      Product.findOne({ _id: { $eq: productId } }),
+      Variant.findOne({ sku: { $eq: variantSku } }),
     ]);
 
     if (!product) {
