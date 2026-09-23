@@ -126,7 +126,7 @@ export const addOrUpdateMember = async ({ actor, organisationId, input }) => {
   if (input.role === "OWNER" && actorMembership.role !== "OWNER") {
     throw unavailable("Organisation");
   }
-  const organisation = await Organisation.findOne({ _id: organisationId, status: "ACTIVE" });
+  const organisation = await Organisation.findOne({ _id: { $eq: organisationId }, status: "ACTIVE" });
   if (!organisation) throw conflict("organisation_inactive", "The organisation is not active");
 
   const canPurchase = ["OWNER", "ADMIN", "BUYER"].includes(input.role);

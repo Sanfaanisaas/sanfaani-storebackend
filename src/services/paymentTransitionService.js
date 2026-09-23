@@ -156,10 +156,10 @@ export const createPaymentAttempt = async ({ subjectType, subjectId, owner, idem
   try {
     return await runTransaction(async (session) => {
       const order = subjectType === "order"
-        ? await Order.findOne({ _id: subjectId, userId: owner, paymentStatus: "pending" }).session(session)
+        ? await Order.findOne({ _id: { $eq: subjectId }, userId: { $eq: owner }, paymentStatus: "pending" }).session(session)
         : null;
       const repair = subjectType === "repair"
-        ? await Repair.findOne({ _id: subjectId, customer: owner, "financial.acceptedQuote.version": { $ne: null } }).session(session)
+        ? await Repair.findOne({ _id: { $eq: subjectId }, customer: { $eq: owner }, "financial.acceptedQuote.version": { $ne: null } }).session(session)
         : null;
       if (!order && !repair) throw unavailable("Payment subject");
       const purpose = order ? "order_payment" : "repair_deposit";
@@ -170,7 +170,7 @@ export const createPaymentAttempt = async ({ subjectType, subjectId, owner, idem
       if (!Number.isSafeInteger(amount) || amount < 1 || !/^[A-Z]{3}$/.test(currency)) throw conflict("payment_amount_unavailable", "Payment amount is unavailable");
       const fingerprint = paymentAttemptFingerprint({ subjectType, subjectId, owner, amount, currency, purpose, quoteVersion });
       requestedFingerprint = fingerprint;
-      const existing = await Payment.findOne({ owner, idempotencyKey: key }).session(session);
+      const existing = await Payment.findOne({ owner: { $eq: owner }, idempotencyKey: { $eq: key } }).session(session);
       if (existing) {
         if (!matches(existing, fingerprint)) throw conflict("payment_idempotency_conflict", "Idempotency key cannot be reused with different payment input");
         return { payment: existing, replayed: true };
@@ -187,7 +187,7 @@ export const createPaymentAttempt = async ({ subjectType, subjectId, owner, idem
     });
   } catch (error) {
     if (error?.code !== 11000) throw error;
-    const payment = await Payment.findOne({ owner, idempotencyKey: key });
+    const payment = await Payment.findOne({ owner: { $eq: owner }, idempotencyKey: { $eq: key } });
     if (!payment || payment.subjectType !== subjectType || payment.subjectId.toString() !== String(subjectId)) throw conflict("payment_idempotency_conflict", "Idempotency key cannot be reused with different payment input");
     // A transaction losing the unique-key race compares the stored trusted
     // fingerprint with the fingerprint calculated before its attempted insert.

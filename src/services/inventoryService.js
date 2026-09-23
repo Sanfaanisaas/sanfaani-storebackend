@@ -59,10 +59,10 @@ export const recordStockMovement = async (
     throw invalid("stock_delta_invalid", "Stock movement delta must be a non-zero integer");
   if (!Object.values(STOCK_MOVEMENT_REASON).includes(reason))
     throw invalid("stock_reason_invalid", "Stock movement reason is invalid");
-  const variant = await Variant.findById(variantId).session(session);
+  const variant = await Variant.findOne({ _id: { $eq: variantId } }).session(session);
   if (!variant) throw unavailable("Variant");
   assertLocalInventory(variant, delta < 0 ? Math.abs(delta) : undefined);
-  const query = { _id: variantId, sourcing: null, inStock: { $type: "number", $gte: 0 } };
+  const query = { _id: { $eq: variantId }, sourcing: null, inStock: { $type: "number", $gte: 0 } };
   if (delta < 0) query.inStock.$gte = Math.abs(delta);
   const updatedVariant = await Variant.findOneAndUpdate(
     query,
@@ -129,7 +129,7 @@ export const recordInventoryUnitMovement = async ({ unit, reason, actor, fromLoc
 
 export const transitionInventoryUnit = async ({ unitId, action, actor, reason, evidenceId, idempotencyKey, toLocationId }) => {
   const requestDigest = digestPayload({ unitId, action, reason, evidenceId, toLocationId: toLocationId || null });
-  const prior = await StockLedger.findOne({ idempotencyKey });
+  const prior = await StockLedger.findOne({ idempotencyKey: { $eq: idempotencyKey } });
   if (prior) {
     if (prior.requestDigest !== requestDigest)
       throw conflict("idempotency_conflict", "Idempotency key was already used with different input");
@@ -140,7 +140,7 @@ export const transitionInventoryUnit = async ({ unitId, action, actor, reason, e
     let result;
     await session.withTransaction(async () => {
       await assertEvidence(evidenceId, session);
-      const unit = await InventoryUnit.findById(unitId).session(session);
+      const unit = await InventoryUnit.findOne({ _id: { $eq: unitId } }).session(session);
       if (!unit) throw unavailable("Inventory unit");
       let nextState = unit.state;
       let allowedStates;
@@ -152,7 +152,7 @@ export const transitionInventoryUnit = async ({ unitId, action, actor, reason, e
         movementReason = STOCK_MOVEMENT_REASON.TRANSFER;
         if (!toLocationId || String(toLocationId) === String(unit.location))
           throw invalid("inventory_location_invalid", "A different destination location is required");
-        if (!(await InventoryLocation.exists({ _id: toLocationId, active: true }).session(session)))
+        if (!(await InventoryLocation.exists({ _id: { $eq: toLocationId }, active: true }).session(session)))
           throw invalid("inventory_location_invalid", "An active destination location is required");
         destination = toLocationId;
       } else if (action === "return-to-stock") {
@@ -205,7 +205,7 @@ export const transitionInventoryUnit = async ({ unitId, action, actor, reason, e
     return result;
   } catch (error) {
     if (error?.code === 11000) {
-      const winner = await StockLedger.findOne({ idempotencyKey });
+      const winner = await StockLedger.findOne({ idempotencyKey: { $eq: idempotencyKey } });
       if (winner?.requestDigest === requestDigest)
         return { unit: await InventoryUnit.findById(winner.inventoryUnit), ledger: winner, replayed: true };
       throw conflict("idempotency_conflict", "Idempotency key was already used with different input");
@@ -218,7 +218,7 @@ export const transitionInventoryUnit = async ({ unitId, action, actor, reason, e
 
 export const adjustStock = async ({ variantId, delta, reason, note, evidenceId, actor, idempotencyKey }) => {
   const requestDigest = digestPayload({ variantId, delta, reason, note, evidenceId });
-  const prior = await StockLedger.findOne({ idempotencyKey });
+  const prior = await StockLedger.findOne({ idempotencyKey: { $eq: idempotencyKey } });
   if (prior) {
     if (prior.requestDigest !== requestDigest)
       throw conflict("idempotency_conflict", "Idempotency key was already used with different input");
@@ -237,7 +237,7 @@ export const adjustStock = async ({ variantId, delta, reason, note, evidenceId, 
     return result;
   } catch (error) {
     if (error?.code === 11000) {
-      const winner = await StockLedger.findOne({ idempotencyKey });
+      const winner = await StockLedger.findOne({ idempotencyKey: { $eq: idempotencyKey } });
       if (winner?.requestDigest === requestDigest)
         return { ledger: winner, variant: await Variant.findById(winner.variant), replayed: true };
     }
@@ -249,7 +249,7 @@ export const adjustStock = async ({ variantId, delta, reason, note, evidenceId, 
 
 export const createStockCount = async ({ variantId, locationId, countedQuantity, reason, evidenceId, actor, idempotencyKey }) => {
   const requestDigest = digestPayload({ variantId, locationId, countedQuantity, reason, evidenceId });
-  const existing = await StockCount.findOne({ idempotencyKey });
+  const existing = await StockCount.findOne({ idempotencyKey: { $eq: idempotencyKey } });
   if (existing) {
     if (existing.requestDigest !== requestDigest)
       throw conflict("idempotency_conflict", "Idempotency key was already used with different input");
@@ -261,9 +261,9 @@ export const createStockCount = async ({ variantId, locationId, countedQuantity,
     await session.withTransaction(async () => {
       // MongoDB sessions do not support parallel operations inside one
       // transaction; resolve the two controlled reads sequentially.
-      const variant = await Variant.findById(variantId).session(session);
+      const variant = await Variant.findOne({ _id: { $eq: variantId } }).session(session);
       const location = await InventoryLocation.findOne({
-        _id: locationId,
+        _id: { $eq: locationId },
         active: true,
       }).session(session);
       if (!variant || !location) throw unavailable();
@@ -308,7 +308,7 @@ export const createStockCount = async ({ variantId, locationId, countedQuantity,
     return count;
   } catch (error) {
     if (error?.code === 11000) {
-      const winner = await StockCount.findOne({ idempotencyKey });
+      const winner = await StockCount.findOne({ idempotencyKey: { $eq: idempotencyKey } });
       if (winner?.requestDigest === requestDigest) return winner;
       throw conflict("idempotency_conflict", "Idempotency key was already used with different input");
     }
@@ -338,7 +338,7 @@ export const listStockDiscrepancies = async ({ page = 1, limit = 20, status }) =
 
 export const resolveStockDiscrepancy = async ({ discrepancyId, resolution, resolutionReason, evidenceId, actor, idempotencyKey }) => {
   const resolutionDigest = digestPayload({ discrepancyId, resolution, resolutionReason, evidenceId });
-  const prior = await StockDiscrepancy.findOne({ resolutionIdempotencyKey: idempotencyKey });
+  const prior = await StockDiscrepancy.findOne({ resolutionIdempotencyKey: { $eq: idempotencyKey } });
   if (prior) {
     if (prior.resolutionRequestDigest !== resolutionDigest)
       throw conflict("idempotency_conflict", "Idempotency key was already used with different input");
@@ -349,9 +349,9 @@ export const resolveStockDiscrepancy = async ({ discrepancyId, resolution, resol
     let result;
     await session.withTransaction(async () => {
       await assertEvidence(evidenceId, session);
-      const discrepancy = await StockDiscrepancy.findOne({ _id: discrepancyId, status: "OPEN" }).session(session);
+      const discrepancy = await StockDiscrepancy.findOne({ _id: { $eq: discrepancyId }, status: "OPEN" }).session(session);
       if (!discrepancy) {
-        const resolved = await StockDiscrepancy.findById(discrepancyId).session(session);
+        const resolved = await StockDiscrepancy.findOne({ _id: { $eq: discrepancyId } }).session(session);
         if (resolved?.status === "RESOLVED")
           throw conflict("stock_discrepancy_resolved", "Stock discrepancy was already resolved");
         throw unavailable("Stock discrepancy");
@@ -401,7 +401,7 @@ export const resolveStockDiscrepancy = async ({ discrepancyId, resolution, resol
     return result;
   } catch (error) {
     if (error?.code === 11000 || error?.errors?.some?.((item) => item.code === "stock_discrepancy_resolved")) {
-      const winner = await StockDiscrepancy.findOne({ resolutionIdempotencyKey: idempotencyKey });
+      const winner = await StockDiscrepancy.findOne({ resolutionIdempotencyKey: { $eq: idempotencyKey } });
       if (winner?.resolutionRequestDigest === resolutionDigest) return winner;
     }
     throw error;

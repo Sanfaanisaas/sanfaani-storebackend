@@ -105,7 +105,10 @@ export const createRequest = async ({ owner, input, idempotencyKey }) => {
   const fields = ["organisationName", "organisationType", "contactName", "contactEmail", "contactPhone"];
   for (const field of fields) if (typeof input[field] !== "string" || !input[field].trim()) throw invalid(`${field} is required`);
   if (!["business", "school", "nonprofit", "government", "other"].includes(input.organisationType)) throw invalid("Organisation type is invalid");
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.contactEmail.trim())) throw invalid("Contact email is invalid");
+  const contactEmail = input.contactEmail.trim();
+  const at = contactEmail.indexOf("@");
+  const domain = at >= 0 ? contactEmail.slice(at + 1) : "";
+  if (at <= 0 || at !== contactEmail.lastIndexOf("@") || !domain.includes(".") || /\s/.test(contactEmail)) throw invalid("Contact email is invalid");
   const requirements = ensureRequirements(input.requirements);
   const normalized = {
     organisationId: input.organisationId || null,

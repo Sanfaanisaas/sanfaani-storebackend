@@ -91,8 +91,8 @@ const deliveryDto = (item) => ({ id: idText(item._id), notificationId: idText(it
 export const listNotificationDeliveries = async (query = {}) => {
   const { page, limit, skip } = pageInput(query);
   const filter = {};
-  if (["PENDING", "PROCESSING", "RETRY_SCHEDULED", "DELIVERED", "SUPPRESSED", "DEAD_LETTER"].includes(query.status)) filter.status = query.status;
-  if (["email", "push"].includes(query.channel)) filter.channel = query.channel;
+  if (["PENDING", "PROCESSING", "RETRY_SCHEDULED", "DELIVERED", "SUPPRESSED", "DEAD_LETTER"].includes(query.status)) filter.status = { $eq: query.status };
+  if (["email", "push"].includes(query.channel)) filter.channel = { $eq: query.channel };
   const [items, total] = await Promise.all([NotificationDelivery.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit), NotificationDelivery.countDocuments(filter)]);
   return { deliveries: items.map(deliveryDto), pagination: pagination(page, limit, total) };
 };

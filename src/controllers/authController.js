@@ -49,7 +49,7 @@ import bcrypt from "bcryptjs";
 
   export const register = catchAsync(async (req, res) => {
     const { name, email, password, phone } = req.body;
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: { $eq: email } });
 
     if (existingUser) {
       return res.status(409).json({
@@ -71,7 +71,7 @@ import bcrypt from "bcryptjs";
   export const login = catchAsync(async (req, res) => {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email }).select(
+    const user = await User.findOne({ email: { $eq: email } }).select(
       "+authVersion +passwordHash",
     );
 
