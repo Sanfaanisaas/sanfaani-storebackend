@@ -142,16 +142,17 @@ export const getRepairQueue = catchAsync(async (req, res) => {
   const { status, technician, dateFrom, dateTo, search } = req.query;
   const query = {};
 
-  if (status) query.status = status;
-  if (technician) query.technician = technician;
+  if (typeof status === "string" && status.length <= 32) query.status = { $eq: status };
+  if (typeof technician === "string" && technician.length <= 64) query.technician = { $eq: technician };
   if (dateFrom || dateTo) {
     query.createdAt = {};
     if (dateFrom) query.createdAt.$gte = new Date(dateFrom);
     if (dateTo) query.createdAt.$lte = new Date(dateTo);
   }
 
-  if (search) {
-    const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (typeof search === "string" && search.trim()) {
+    const boundedSearch = search.trim().slice(0, 100);
+    const escapedSearch = boundedSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const searchRegex = new RegExp(escapedSearch, 'i');
 
     const matchingUsers = await repairService.findUsersByEmailOrName(searchRegex);

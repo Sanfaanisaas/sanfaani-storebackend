@@ -18,11 +18,13 @@ const validHttpUrl = (value) => {
 export const normalizeSlug = (value) => {
   if (typeof value !== "string") return "";
 
-  return value
+  let normalized = value
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/[^a-z0-9]+/g, "-");
+  while (normalized.startsWith("-")) normalized = normalized.slice(1);
+  while (normalized.endsWith("-")) normalized = normalized.slice(0, -1);
+  return normalized;
 };
 
 const requirement = (code, path, message, variant) => ({

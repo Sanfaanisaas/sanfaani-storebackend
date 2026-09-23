@@ -90,7 +90,7 @@ export const createRepairFinanceOverride = async ({ repairId, actorId, actorRole
   if (!FINANCE_OVERRIDE_SCOPES.includes(scope)) throw new AppError("Finance override scope is invalid", 400);
   const normalizedReason = boundedReason(reason);
   return runTransaction(async (session) => {
-    const repair = await Repair.findById(repairId).session(session);
+    const repair = await Repair.findOne({ _id: { $eq: repairId } }).session(session);
     if (!repair) throw unavailable();
     const beforeState = baseState(repair);
     const superseded = await RepairFinanceOverride.findOneAndUpdate(

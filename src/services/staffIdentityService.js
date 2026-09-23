@@ -183,8 +183,8 @@ export const listStaff = async ({ actor, query }) => {
   await administrator(actor);
   const { page, limit, skip } = pageInput(query);
   const filter = { role: { $ne: USER_ROLES.CUSTOMER } };
-  if (query.role && STAFF_ROLES.includes(query.role)) filter.role = query.role;
-  if (query.status && ["INVITED", "ACTIVE", "SUSPENDED", "DISABLED"].includes(query.status)) filter.status = query.status;
+  if (query.role && STAFF_ROLES.includes(query.role)) filter.role = { $eq: query.role };
+  if (query.status && ["INVITED", "ACTIVE", "SUSPENDED", "DISABLED"].includes(query.status)) filter.status = { $eq: query.status };
   const [items, total] = await Promise.all([User.find(filter).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit), User.countDocuments(filter)]);
   return { staff: items.map(staffDto), pagination: pagination(page, limit, total) };
 };

@@ -84,8 +84,8 @@ export const listPlansForStaff = async ({ actor, query }) => {
   await requireStaff(actor);
   const { page, limit, skip } = pageInput(query);
   const filter = {};
-  if (query.customerId && isObjectId(query.customerId)) filter.customer = query.customerId;
-  if (query.status && ["ACTIVE", "UPCOMING", "EXPIRED", "CANCELLED"].includes(query.status)) filter.status = query.status;
+  if (query.customerId && isObjectId(query.customerId)) filter.customer = { $eq: query.customerId };
+  if (query.status && ["ACTIVE", "UPCOMING", "EXPIRED", "CANCELLED"].includes(query.status)) filter.status = { $eq: query.status };
   const [items, total] = await Promise.all([MaintenancePlan.find(filter).sort({ updatedAt: -1 }).skip(skip).limit(limit), MaintenancePlan.countDocuments(filter)]);
   return { plans: items.map(dto), pagination: pagination(page, limit, total) };
 };
@@ -100,7 +100,7 @@ export const updatePlan = async ({ actor, planId, input }) => {
   try {
     await session.withTransaction(async () => {
       await requireStaff(actor, session);
-      updated = await MaintenancePlan.findOneAndUpdate({ _id: planId, version: input.expectedVersion, status: { $in: ["ACTIVE", "UPCOMING"] } }, { $set, $inc: { version: 1 } }, { returnDocument: "after", runValidators: true, session });
+      updated = await MaintenancePlan.findOneAndUpdate({ _id: { $eq: planId }, version: input.expectedVersion, status: { $in: ["ACTIVE", "UPCOMING"] } }, { $set, $inc: { version: 1 } }, { returnDocument: "after", runValidators: true, session });
       if (!updated) throw conflict("maintenance_plan_version_conflict", "The maintenance plan changed or is no longer editable");
       await writeAuditLog(actor, "MAINTENANCE_PLAN_UPDATED", "MaintenancePlan", updated._id, { version: updated.version }, session);
     });
@@ -119,7 +119,7 @@ export const cancelPlan = async ({ actor, planId, input, idempotencyKey }) => {
   try {
     await session.withTransaction(async () => {
       await requireStaff(actor, session);
-      const plan = await MaintenancePlan.findById(planId).select(privateSelection).session(session);
+      const plan = await MaintenancePlan.findOne({ _id: { $eq: planId } }).select(privateSelection).session(session);
       if (!plan) throw unavailable("Maintenance plan");
       if (plan.cancellation?.idempotencyKey) {
         if (plan.cancellation.idempotencyKey === idempotency && plan.cancellation.fingerprint === hash) { result = plan; return; }
@@ -154,7 +154,7 @@ export const renewPlan = async ({ actor, planId, input, idempotencyKey }) => {
   try {
     await session.withTransaction(async () => {
       await requireStaff(actor, session);
-      const plan = await MaintenancePlan.findById(planId).select(privateSelection).session(session);
+      const plan = await MaintenancePlan.findOne({ _id: { $eq: planId } }).select(privateSelection).session(session);
       if (!plan) throw unavailable("Maintenance plan");
       if (plan.renewal?.idempotencyKey) {
         if (plan.renewal.idempotencyKey === idempotency && plan.renewal.fingerprint === hash) {

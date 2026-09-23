@@ -53,7 +53,7 @@ export const getOrderById = catchAsync(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(404).json({ success: false, message: "Order not found" });
   }
-  const order = await Order.findOne({ _id: id, userId: req.user.id });
+  const order = await Order.findOne({ _id: { $eq: id }, userId: { $eq: req.user.id } });
   if (!order) {
     return res.status(404).json({ success: false, message: "Order not found" });
   }
@@ -85,7 +85,7 @@ export const uploadReceipt = catchAsync(async (req, res) => {
 export const checkEligiblePickup = catchAsync(async (req, res) => {
   const id = req.params.id || req.query.orderId;
   const order = mongoose.isObjectIdOrHexString(id)
-    ? await Order.findOne({ _id: id, userId: req.user.id })
+    ? await Order.findOne({ _id: { $eq: id }, userId: { $eq: req.user.id } })
     : null;
   if (!order) {
     return res.status(404).json({
@@ -224,17 +224,18 @@ export const getOrderQueue = catchAsync(async (req, res) => {
   const { status, paymentMethod, dateFrom, dateTo, search } = req.query;
   const query = {};
 
-  if (status) query.status = status;
-  if (paymentMethod) query.paymentMethod = paymentMethod;
+  if (typeof status === "string" && status.length <= 32) query.status = { $eq: status };
+  if (typeof paymentMethod === "string" && paymentMethod.length <= 32) query.paymentMethod = { $eq: paymentMethod };
   if (dateFrom || dateTo) {
     query.createdAt = {};
     if (dateFrom) query.createdAt.$gte = new Date(dateFrom);
     if (dateTo) query.createdAt.$lte = new Date(dateTo);
   }
 
-  if (search) {
+  if (typeof search === "string" && search.trim()) {
+    const boundedSearch = search.trim().slice(0, 100);
     // Escape search for regex
-    const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const escapedSearch = boundedSearch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const searchRegex = new RegExp(escapedSearch, "i");
 
     // Search by Order ID or User Email
@@ -248,7 +249,7 @@ export const getOrderQueue = catchAsync(async (req, res) => {
     query.$or = [{ userId: { $in: userIds } }];
 
     if (mongoose.Types.ObjectId.isValid(search)) {
-      query.$or.push({ _id: search });
+      query.$or.push({ _id: { $eq: search } });
     }
   }
 

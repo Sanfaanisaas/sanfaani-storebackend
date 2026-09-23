@@ -83,7 +83,7 @@ export const createDraft = async ({ kind, actor, input, idempotencyKey }) => {
   let document;
   try {
     await session.withTransaction(async () => {
-      const latest = await Model.findOne({ [identity]: normalized[identity], locale: normalized.locale }).sort({ version: -1 }).select("version").session(session);
+      const latest = await Model.findOne({ [identity]: { $eq: normalized[identity] }, locale: { $eq: normalized.locale } }).sort({ version: -1 }).select("version").session(session);
       [document] = await Model.create([{ ...normalized, version: (latest?.version || 0) + 1, createdBy: actor, idempotencyKey: key, idempotencyFingerprint: requestHash }], { session });
       await writeAuditLog(actor, kind === "page" ? "CONTENT_DRAFT_CREATED" : "POLICY_DRAFT_CREATED", targetType, document._id, { version: document.version, identity: normalized[identity] }, session);
     });

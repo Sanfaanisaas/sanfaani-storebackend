@@ -14,7 +14,7 @@ import { projectProductPublic } from "../utils/projections.js";
 const slugIsUnique = (excludedProductId) => async (slug) => {
   if (!slug) return false;
 
-  const query = { slug };
+  const query = { slug: { $eq: slug } };
   if (excludedProductId) query._id = { $ne: excludedProductId };
   return !(await Product.exists(query));
 };
@@ -46,7 +46,7 @@ export const createProduct = catchAsync(async (req, res) => {
 });
 
 export const updateProduct = catchAsync(async (req, res) => {
-  const product = await Product.findById(req.params.id);
+  const product = await Product.findOne({ _id: { $eq: req.params.id } });
   if (!product) {
     return res.status(404).json({
       success: false,
@@ -84,8 +84,8 @@ export const updateProduct = catchAsync(async (req, res) => {
 });
 
 export const deleteProduct = catchAsync(async (req, res) => {
-  const product = await Product.findByIdAndUpdate(
-    req.params.id,
+  const product = await Product.findOneAndUpdate(
+    { _id: { $eq: req.params.id } },
     { status: PRODUCT_STATUS.ARCHIVED },
     { new: true },
   );

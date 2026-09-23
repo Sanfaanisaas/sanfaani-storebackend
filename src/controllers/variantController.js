@@ -14,7 +14,7 @@ const slugIsUnique = (productId) => async (slug) => !await Product.exists({
 });
 
 export const createVariant = catchAsync(async (req, res) => {
-  const product = await Product.findById(req.body.product);
+  const product = await Product.findOne({ _id: { $eq: req.body.product } });
   if (!product) {
     return res.status(404).json({
       success: false,
@@ -45,7 +45,7 @@ export const createVariant = catchAsync(async (req, res) => {
 });
 
 export const updateVariant = catchAsync(async (req, res) => {
-  const variant = await Variant.findById(req.params.id);
+  const variant = await Variant.findOne({ _id: { $eq: req.params.id } });
 
   if (!variant) {
     return res.status(404).json({

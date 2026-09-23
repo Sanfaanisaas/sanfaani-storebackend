@@ -61,7 +61,7 @@ export const listSuppliers = async ({ page = 1, limit = 20, active }) => {
 };
 
 export const getSupplier = async (supplierId) => {
-  const supplier = await Supplier.findById(supplierId).lean();
+  const supplier = await Supplier.findOne({ _id: { $eq: supplierId } }).lean();
   if (!supplier) throw unavailable("Supplier");
   return supplier;
 };
@@ -76,7 +76,7 @@ export const updateSupplier = async ({ supplierId, actor, expectedVersion, name,
     let supplier;
     await session.withTransaction(async () => {
       supplier = await Supplier.findOneAndUpdate(
-        { _id: supplierId, active: true, __v: expectedVersion },
+        { _id: { $eq: supplierId }, active: true, __v: expectedVersion },
         { $set: updates, $inc: { __v: 1 } },
         { returnDocument: "after", session, runValidators: true },
       );
@@ -97,7 +97,7 @@ export const deactivateSupplier = async ({ supplierId, actor, expectedVersion, r
       if (await PurchaseOrder.exists({ supplier: supplierId, status: { $in: ["PENDING_APPROVAL", "APPROVED", "RECEIVING"] } }).session(session))
         throw conflict("supplier_has_open_orders", "Supplier has active purchase orders");
       supplier = await Supplier.findOneAndUpdate(
-        { _id: supplierId, active: true, __v: expectedVersion },
+        { _id: { $eq: supplierId }, active: true, __v: expectedVersion },
         { $set: { active: false, deactivatedBy: actor, deactivatedAt: new Date(), deactivationReason: reason }, $inc: { __v: 1 } },
         { returnDocument: "after", session, runValidators: true },
       );
@@ -112,7 +112,7 @@ export const deactivateSupplier = async ({ supplierId, actor, expectedVersion, r
 
 export const createPurchaseOrder = async ({ actor, supplier, lines, idempotencyKey }) => {
   const requestDigest = digest({ supplier, lines });
-  const prior = await PurchaseOrder.findOne({ idempotencyKey });
+  const prior = await PurchaseOrder.findOne({ idempotencyKey: { $eq: idempotencyKey } });
   if (prior) {
     if (prior.requestDigest !== requestDigest)
       throw conflict("idempotency_conflict", "Idempotency key was already used with different input");
@@ -136,7 +136,7 @@ export const createPurchaseOrder = async ({ actor, supplier, lines, idempotencyK
     return po;
   } catch (error) {
     if (error?.code === 11000) {
-      const winner = await PurchaseOrder.findOne({ idempotencyKey });
+      const winner = await PurchaseOrder.findOne({ idempotencyKey: { $eq: idempotencyKey } });
       if (winner?.requestDigest === requestDigest) return winner;
       throw conflict("idempotency_conflict", "Idempotency key was already used with different input");
     }
@@ -148,8 +148,8 @@ export const createPurchaseOrder = async ({ actor, supplier, lines, idempotencyK
 
 export const listPurchaseOrders = async ({ page = 1, limit = 20, status, supplier }) => {
   const query = {};
-  if (status) query.status = status;
-  if (supplier) query.supplier = supplier;
+  if (status) query.status = { $eq: status };
+  if (supplier) query.supplier = { $eq: supplier };
   const [items, total] = await Promise.all([
     PurchaseOrder.find(query).sort({ createdAt: -1, _id: -1 }).skip((page - 1) * limit).limit(limit).lean(),
     PurchaseOrder.countDocuments(query),
@@ -158,7 +158,7 @@ export const listPurchaseOrders = async ({ page = 1, limit = 20, status, supplie
 };
 
 export const getPurchaseOrder = async (purchaseOrderId) => {
-  const po = await PurchaseOrder.findById(purchaseOrderId).lean();
+  const po = await PurchaseOrder.findOne({ _id: { $eq: purchaseOrderId } }).lean();
   if (!po) throw unavailable("Purchase order");
   return po;
 };
@@ -169,7 +169,7 @@ const transitionPurchaseOrder = async ({ purchaseOrderId, actor, from, to, actio
     let po;
     await session.withTransaction(async () => {
       po = await PurchaseOrder.findOneAndUpdate(
-        { _id: purchaseOrderId, status: { $in: from } },
+        { _id: { $eq: purchaseOrderId }, status: { $in: from } },
         { $set: { status: to, ...updates } },
         { returnDocument: "after", session, runValidators: true },
       );
@@ -207,7 +207,7 @@ export const cancelPurchaseOrder = async ({ purchaseOrderId, actor, reason }) =>
   try {
     let po;
     await session.withTransaction(async () => {
-      po = await PurchaseOrder.findOne({ _id: purchaseOrderId, status: { $in: ["DRAFT", "PENDING_APPROVAL", "APPROVED"] } }).session(session);
+      po = await PurchaseOrder.findOne({ _id: { $eq: purchaseOrderId }, status: { $in: ["DRAFT", "PENDING_APPROVAL", "APPROVED"] } }).session(session);
       if (!po) throw conflict("purchase_order_state_conflict", "Purchase order is not eligible for cancellation");
       if (po.lines.some((line) => line.receivedQuantity > 0))
         throw conflict("purchase_order_receipt_exists", "A purchase order with receipts cannot be cancelled");
@@ -229,7 +229,7 @@ export const closePurchaseOrder = async ({ purchaseOrderId, actor, reason }) => 
   try {
     let po;
     await session.withTransaction(async () => {
-      po = await PurchaseOrder.findOne({ _id: purchaseOrderId, status: { $in: ["APPROVED", "RECEIVING"] } }).session(session);
+      po = await PurchaseOrder.findOne({ _id: { $eq: purchaseOrderId }, status: { $in: ["APPROVED", "RECEIVING"] } }).session(session);
       if (!po) throw conflict("purchase_order_state_conflict", "Purchase order is not eligible for closure");
       if (!po.lines.every((line) => line.receivedQuantity === line.quantity))
         throw conflict("purchase_order_incomplete", "All approved quantities must be received before closure");
@@ -248,7 +248,7 @@ export const closePurchaseOrder = async ({ purchaseOrderId, actor, reason }) => 
 
 export const receivePurchaseOrderLine = async ({ purchaseOrderId, variantId, quantity, locationId, actor, serials = [], condition = "NEW", evidenceId, idempotencyKey }) => {
   const requestDigest = digest({ purchaseOrderId, variantId, quantity, locationId, serials, condition, evidenceId });
-  const priorPo = await PurchaseOrder.findOne({ "receipts.idempotencyKey": idempotencyKey });
+  const priorPo = await PurchaseOrder.findOne({ "receipts.idempotencyKey": { $eq: idempotencyKey } });
   const prior = priorPo?.receipts.find((item) => item.idempotencyKey === idempotencyKey);
   if (prior) {
     if (prior.requestDigest !== requestDigest)
@@ -259,8 +259,8 @@ export const receivePurchaseOrderLine = async ({ purchaseOrderId, variantId, qua
   try {
     let result;
     await session.withTransaction(async () => {
-      const po = await PurchaseOrder.findOne({ _id: purchaseOrderId, status: { $in: ["APPROVED", "RECEIVING"] } }).session(session);
-      const location = await InventoryLocation.exists({ _id: locationId, active: true }).session(session);
+      const po = await PurchaseOrder.findOne({ _id: { $eq: purchaseOrderId }, status: { $in: ["APPROVED", "RECEIVING"] } }).session(session);
+      const location = await InventoryLocation.exists({ _id: { $eq: locationId }, active: true }).session(session);
       if (!po || !location) throw conflict("purchase_order_receipt_unavailable", "Receipt is unavailable");
       await assertEvidence(evidenceId, po._id, session);
       const line = po.lines.find((item) => item.variant.toString() === String(variantId));
@@ -323,7 +323,7 @@ export const receivePurchaseOrderLine = async ({ purchaseOrderId, variantId, qua
     return result;
   } catch (error) {
     if (error?.code === 11000) {
-      const winner = await PurchaseOrder.findOne({ "receipts.idempotencyKey": idempotencyKey });
+      const winner = await PurchaseOrder.findOne({ "receipts.idempotencyKey": { $eq: idempotencyKey } });
       const receipt = winner?.receipts.find((item) => item.idempotencyKey === idempotencyKey);
       if (receipt?.requestDigest === requestDigest) return winner;
       throw conflict("idempotency_conflict", "Idempotency key was already used with different input");
