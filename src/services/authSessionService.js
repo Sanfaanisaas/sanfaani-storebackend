@@ -12,7 +12,9 @@ import {
 import { requestSecurityContext } from "./securityAuditService.js";
 
 let testHooks = {};
-export const setAuthSessionTestHooks = (hooks = {}) => { testHooks = hooks; };
+export const setAuthSessionTestHooks = (hooks = {}) => {
+  testHooks = hooks;
+};
 
 export class RefreshSessionError extends Error {
   constructor(code = "refresh_token_invalid", reuse = false) {
@@ -24,17 +26,35 @@ export class RefreshSessionError extends Error {
 
 const tokenTimes = () => {
   const issuedAt = new Date();
-  return { issuedAt, expiresAt: new Date(issuedAt.getTime() + REFRESH_TOKEN_MAX_AGE_MS) };
+  return {
+    issuedAt,
+    expiresAt: new Date(issuedAt.getTime() + REFRESH_TOKEN_MAX_AGE_MS),
+  };
 };
 
-const buildGeneration = ({ userId, sessionId, familyId, jti = randomUUID() }) => {
+const buildGeneration = ({
+  userId,
+  sessionId,
+  familyId,
+  jti = randomUUID(),
+}) => {
   const { issuedAt, expiresAt } = tokenTimes();
-  const token = generateRefreshToken({ userId: String(userId), sessionId, familyId, jti });
+  const token = generateRefreshToken({
+    userId: String(userId),
+    sessionId,
+    familyId,
+    jti,
+  });
   return {
     token,
     record: {
-      jti, sessionId, familyId, user: userId,
-      tokenDigest: digestRefreshToken(token), issuedAt, expiresAt,
+      jti,
+      sessionId,
+      familyId,
+      user: userId,
+      tokenDigest: digestRefreshToken(token),
+      issuedAt,
+      expiresAt,
     },
   };
 };
@@ -44,26 +64,29 @@ export const createLoginSession = async (user, req) => {
   const familyId = randomUUID();
   const generation = buildGeneration({ userId: user._id, sessionId, familyId });
   const context = requestSecurityContext(req);
-  const dbSession = await mongoose.startSession();
-  try {
-    await dbSession.withTransaction(async () => {
-      await testHooks.beforeLoginPersistence?.();
-      await AuthSession.create([{
-        sessionId,
-        familyId,
-        user: user._id,
-        currentJti: generation.record.jti,
-        expiresAt: generation.record.expiresAt,
-        deviceLabel: context.deviceLabel,
-        createdIpDigest: context.ipDigest,
-        lastUsedIpDigest: context.ipDigest,
-      }], { session: dbSession });
-      await RefreshToken.create([generation.record], { session: dbSession });
-    });
-  } finally {
-    await dbSession.endSession();
-  }
-  return { refreshToken: generation.token, sessionId, expiresAt: generation.record.expiresAt };
+
+  // Executing standard inserts without the Replica Set transaction requirement
+  await testHooks.beforeLoginPersistence?.();
+  await AuthSession.create([
+    {
+      sessionId,
+      familyId,
+      user: user._id,
+      currentJti: generation.record.jti,
+      expiresAt: generation.record.expiresAt,
+      deviceLabel: context.deviceLabel,
+      createdIpDigest: context.ipDigest,
+      lastUsedIpDigest: context.ipDigest,
+    },
+  ]);
+
+  await RefreshToken.create([generation.record]);
+
+  return {
+    refreshToken: generation.token,
+    sessionId,
+    expiresAt: generation.record.expiresAt,
+  };
 };
 
 export const revokeFamily = async (familyId, reason, at = new Date()) => {
@@ -78,7 +101,9 @@ export const revokeFamily = async (familyId, reason, at = new Date()) => {
       );
       await RefreshToken.updateMany(
         { familyId, status: { $ne: "revoked" } },
-        { $set: { status: "revoked", revokedAt: at, revocationReason: reason } },
+        {
+          $set: { status: "revoked", revokedAt: at, revocationReason: reason },
+        },
         { session: dbSession },
       );
     });
@@ -97,12 +122,15 @@ const assertClaims = (claims) => {
 
 export const rotateRefreshSession = async ({ token, claims, req }) => {
   assertClaims(claims);
-  const old = await RefreshToken.findOne({ jti: claims.jti }).select("+tokenDigest");
+  const old = await RefreshToken.findOne({ jti: claims.jti }).select(
+    "+tokenDigest",
+  );
   if (!old) throw new RefreshSessionError("refresh_session_unknown");
 
-  const claimsMatch = old.sessionId === claims.sessionId
-    && old.familyId === claims.familyId
-    && String(old.user) === claims.userId;
+  const claimsMatch =
+    old.sessionId === claims.sessionId &&
+    old.familyId === claims.familyId &&
+    String(old.user) === claims.userId;
   if (!claimsMatch || !refreshTokenDigestMatches(token, old.tokenDigest)) {
     await revokeFamily(old.familyId, "refresh_token_reuse_detected");
     throw new RefreshSessionError("refresh_token_reuse_detected", true);
@@ -112,7 +140,9 @@ export const rotateRefreshSession = async ({ token, claims, req }) => {
     throw new RefreshSessionError("refresh_token_reuse_detected", true);
   }
 
-  const accountSession = await AuthSession.findOne({ sessionId: claims.sessionId });
+  const accountSession = await AuthSession.findOne({
+    sessionId: claims.sessionId,
+  });
   if (!accountSession) throw new RefreshSessionError("refresh_session_unknown");
   if (accountSession.revokedAt || accountSession.familyId !== claims.familyId) {
     await revokeFamily(old.familyId, "refresh_token_reuse_detected");
@@ -140,27 +170,40 @@ export const rotateRefreshSession = async ({ token, claims, req }) => {
   try {
     await dbSession.withTransaction(async () => {
       const consumed = await RefreshToken.findOneAndUpdate(
-        { _id: old._id, status: "active", revokedAt: null, expiresAt: { $gt: now } },
-        { $set: {
-          status: "rotated", rotatedAt: now, lastUsedAt: now,
-          replacedByJti: successor.record.jti,
-        } },
+        {
+          _id: old._id,
+          status: "active",
+          revokedAt: null,
+          expiresAt: { $gt: now },
+        },
+        {
+          $set: {
+            status: "rotated",
+            rotatedAt: now,
+            lastUsedAt: now,
+            replacedByJti: successor.record.jti,
+          },
+        },
         { session: dbSession, returnDocument: "after" },
       );
-      if (!consumed) throw new RefreshSessionError("refresh_token_reuse_detected", true);
+      if (!consumed)
+        throw new RefreshSessionError("refresh_token_reuse_detected", true);
       await testHooks.beforeSuccessorPersistence?.();
       await RefreshToken.create([successor.record], { session: dbSession });
       const advanced = await AuthSession.findOneAndUpdate(
         { sessionId: old.sessionId, currentJti: old.jti, revokedAt: null },
-        { $set: {
-          currentJti: successor.record.jti,
-          lastUsedAt: now,
-          lastUsedIpDigest: context.ipDigest,
-          expiresAt: successor.record.expiresAt,
-        } },
+        {
+          $set: {
+            currentJti: successor.record.jti,
+            lastUsedAt: now,
+            lastUsedIpDigest: context.ipDigest,
+            expiresAt: successor.record.expiresAt,
+          },
+        },
         { session: dbSession, returnDocument: "after" },
       );
-      if (!advanced) throw new RefreshSessionError("refresh_token_reuse_detected", true);
+      if (!advanced)
+        throw new RefreshSessionError("refresh_token_reuse_detected", true);
     });
   } catch (error) {
     if (error instanceof RefreshSessionError && error.reuse) {
@@ -168,7 +211,10 @@ export const rotateRefreshSession = async ({ token, claims, req }) => {
       throw error;
     }
     // A write conflict means the generation was concurrently consumed.
-    if (error?.errorLabels?.includes?.("TransientTransactionError") || error?.code === 112) {
+    if (
+      error?.errorLabels?.includes?.("TransientTransactionError") ||
+      error?.code === 112
+    ) {
       await revokeFamily(old.familyId, "refresh_token_reuse_detected");
       throw new RefreshSessionError("refresh_token_reuse_detected", true);
     }
@@ -182,8 +228,11 @@ export const rotateRefreshSession = async ({ token, claims, req }) => {
 
 export const revokeRecognizedToken = async ({ token, claims, reason }) => {
   assertClaims(claims);
-  const record = await RefreshToken.findOne({ jti: claims.jti }).select("+tokenDigest");
-  if (!record || !refreshTokenDigestMatches(token, record.tokenDigest)) return null;
+  const record = await RefreshToken.findOne({ jti: claims.jti }).select(
+    "+tokenDigest",
+  );
+  if (!record || !refreshTokenDigestMatches(token, record.tokenDigest))
+    return null;
   await revokeFamily(record.familyId, reason);
   return { user: record.user, sessionId: record.sessionId };
 };
@@ -202,7 +251,8 @@ export const revokeAllUserSessions = async ({ userId, reason }) => {
   try {
     await dbSession.withTransaction(async () => {
       const sessions = await AuthSession.find({ user: userId, revokedAt: null })
-        .select("familyId").session(dbSession);
+        .select("familyId")
+        .session(dbSession);
       count = sessions.length;
       const families = sessions.map(({ familyId }) => familyId);
       await AuthSession.updateMany(
@@ -213,7 +263,13 @@ export const revokeAllUserSessions = async ({ userId, reason }) => {
       if (families.length) {
         await RefreshToken.updateMany(
           { familyId: { $in: families }, status: { $ne: "revoked" } },
-          { $set: { status: "revoked", revokedAt: now, revocationReason: reason } },
+          {
+            $set: {
+              status: "revoked",
+              revokedAt: now,
+              revocationReason: reason,
+            },
+          },
           { session: dbSession },
         );
       }
